@@ -1,0 +1,285 @@
+spec_version: v1
+kind: tool
+name: lendyr_bank_api
+description: >
+  Lendyr Bank REST API. Use this tool to look up customer information,
+  account balances, transactions, transfers, cards, loans, and disputes.
+  Also use it to freeze/unfreeze cards and update daily spending limits.
+tool_type: openapi
+openapi:
+  server_url: https://lendyr-bank-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud
+  spec:
+    openapi: "3.0.0"
+    info:
+      title: Lendyr Bank API
+      description: Customer care REST API for the Lendyr Bank watsonx Orchestrate demo.
+      version: "1.0.0"
+    servers:
+      - url: https://lendyr-bank-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud
+    paths:
+      /customers/{email}:
+        get:
+          operationId: get_customer
+          summary: Get customer profile
+          description: >
+            Returns the full profile for a customer identified by their email
+            address, including name, phone, address, and KYC status.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+          responses:
+            "200":
+              description: Customer profile
+              content:
+                application/json:
+                  schema:
+                    type: object
+
+      /customers/{email}/accounts:
+        get:
+          operationId: get_accounts
+          summary: Get all accounts for a customer
+          description: >
+            Returns all accounts for the customer including checking, savings,
+            credit, and loan accounts with current balances and status.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+          responses:
+            "200":
+              description: List of accounts
+              content:
+                application/json:
+                  schema:
+                    type: array
+
+      /customers/{email}/accounts/{account_type}:
+        get:
+          operationId: get_account_by_type
+          summary: Get a specific account type
+          description: >
+            Returns a single account of the specified type for the customer.
+            Use account_type values: checking, savings, credit, or loan.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+            - name: account_type
+              in: path
+              required: true
+              schema:
+                type: string
+                enum: [checking, savings, credit, loan]
+              description: The type of account to retrieve
+          responses:
+            "200":
+              description: Account details
+              content:
+                application/json:
+                  schema:
+                    type: object
+
+      /customers/{email}/transactions:
+        get:
+          operationId: get_transactions
+          summary: Get recent transactions
+          description: >
+            Returns the most recent transactions for the customer across all
+            accounts. Optionally filter by account_type. Use limit to control
+            how many transactions to return (default 10, max 100).
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+            - name: limit
+              in: query
+              required: false
+              schema:
+                type: integer
+                default: 10
+              description: Number of transactions to return
+            - name: account_type
+              in: query
+              required: false
+              schema:
+                type: string
+                enum: [checking, savings, credit, loan]
+              description: Filter transactions by account type
+          responses:
+            "200":
+              description: List of transactions
+              content:
+                application/json:
+                  schema:
+                    type: array
+
+      /customers/{email}/transfers:
+        get:
+          operationId: get_transfers
+          summary: Get transfer history
+          description: >
+            Returns all inbound and outbound transfers involving the customer's
+            accounts, including amount, date, and counterpart account number.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+          responses:
+            "200":
+              description: List of transfers
+              content:
+                application/json:
+                  schema:
+                    type: array
+
+      /customers/{email}/cards:
+        get:
+          operationId: get_cards
+          summary: Get all cards for a customer
+          description: >
+            Returns all debit and credit cards for the customer including
+            card number (masked), network, status (active/frozen/blocked),
+            expiry date, and daily spending limit.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+          responses:
+            "200":
+              description: List of cards
+              content:
+                application/json:
+                  schema:
+                    type: array
+
+      /cards/{card_id}/status:
+        patch:
+          operationId: update_card_status
+          summary: Freeze or unfreeze a card
+          description: >
+            Updates the status of a card. Use status 'frozen' to freeze the
+            card and prevent all transactions. Use status 'active' to unfreeze
+            the card and restore normal usage. Use 'blocked' to permanently block.
+          parameters:
+            - name: card_id
+              in: path
+              required: true
+              schema:
+                type: integer
+              description: The numeric card ID
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    status:
+                      type: string
+                      enum: [active, frozen, blocked]
+                  required: [status]
+          responses:
+            "200":
+              description: Card status updated
+              content:
+                application/json:
+                  schema:
+                    type: object
+
+      /cards/{card_id}/limit:
+        patch:
+          operationId: update_card_limit
+          summary: Update card daily spending limit
+          description: >
+            Updates the daily spending limit on a card. The new limit must
+            be greater than zero. Changes take effect immediately.
+          parameters:
+            - name: card_id
+              in: path
+              required: true
+              schema:
+                type: integer
+              description: The numeric card ID
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    daily_limit:
+                      type: number
+                  required: [daily_limit]
+          responses:
+            "200":
+              description: Daily limit updated
+              content:
+                application/json:
+                  schema:
+                    type: object
+
+      /customers/{email}/loans:
+        get:
+          operationId: get_loans
+          summary: Get loan details
+          description: >
+            Returns all loan details for the customer including loan type
+            (personal, auto, mortgage), original amount, outstanding balance,
+            monthly payment amount, next payment date, and interest rate.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+          responses:
+            "200":
+              description: List of loans
+              content:
+                application/json:
+                  schema:
+                    type: array
+
+      /customers/{email}/disputes:
+        get:
+          operationId: get_disputes
+          summary: Get dispute history
+          description: >
+            Returns all transaction disputes filed by the customer, including
+            the reason, current status (open/under_review/resolved/rejected),
+            the disputed merchant, and the amount.
+          parameters:
+            - name: email
+              in: path
+              required: true
+              schema:
+                type: string
+              description: The customer's email address
+          responses:
+            "200":
+              description: List of disputes
+              content:
+                application/json:
+                  schema:
+                    type: array
