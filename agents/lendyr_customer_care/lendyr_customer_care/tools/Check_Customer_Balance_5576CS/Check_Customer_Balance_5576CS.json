@@ -1,0 +1,145 @@
+{
+  "spec": {
+    "kind": "flow",
+    "name": "Check_Customer_Balance_1054QO",
+    "initiators": [],
+    "description": "Retrieves all account balances for a Lendyr Bank customer by email address",
+    "display_name": "Check Customer Balance",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "The customer's email address"
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "result": {
+          "type": "string",
+          "description": ""
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "id": "518140ba-bfa9-43b4-b206-deaf1eb88682",
+      "end": "tool_d77578ec-e0e5-4650-b189-477c457a2ded",
+      "start": "__start__"
+    },
+    {
+      "id": "49c290d3-dc7c-4c48-87b1-5a9532d0ed8e",
+      "end": "__end__",
+      "start": "tool_d77578ec-e0e5-4650-b189-477c457a2ded"
+    }
+  ],
+  "nodes": {
+    "__end__": {
+      "spec": {
+        "kind": "end",
+        "name": "__end__",
+        "position": {
+          "x": 0,
+          "y": 300
+        }
+      }
+    },
+    "__start__": {
+      "spec": {
+        "kind": "start",
+        "name": "__start__",
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "tool_d77578ec-e0e5-4650-b189-477c457a2ded": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_d77578ec-e0e5-4650-b189-477c457a2ded",
+        "tool": "get_accounts_customers_email_accounts_get:65e58596-9209-42ea-8da4-6aa626fe1179",
+        "position": {
+          "x": 0,
+          "y": 155
+        },
+        "description": "Returns all checking, savings, credit, and loan accounts for the customer.",
+        "display_name": "Get all accounts for a customer",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "email"
+          ],
+          "properties": {
+            "email": {
+              "in": "path",
+              "type": "string",
+              "title": "email",
+              "aliasName": "email"
+            }
+          }
+        },
+        "output_schema": {
+          "description": "Successful Response"
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong while running 'Get all accounts for a customer'",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [
+            {
+              "metadata": {
+                "assignmentType": "variable"
+              },
+              "has-no-value": false,
+              "target_variable": "self.input.email",
+              "value_expression": "flow.input.email"
+            }
+          ],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "metadata": {
+    "llm_model": "groq/openai/gpt-oss-120b",
+    "source_kind": "ui",
+    "is_system_generated_description": false
+  },
+  "output_map": {
+    "spec": {
+      "maps": [
+        {
+          "metadata": {
+            "assignmentType": "pyExpression"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.accounts",
+          "value_expression": "flow[\"Get all accounts for a customer\"].output\n"
+        },
+        {
+          "metadata": {
+            "assignmentType": "pyExpression"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.result",
+          "value_expression": "flow[\"Get all accounts for a customer\"].output"
+        }
+      ],
+      "name": "",
+      "fallback_strategy": "ask_the_user"
+    }
+  }
+}

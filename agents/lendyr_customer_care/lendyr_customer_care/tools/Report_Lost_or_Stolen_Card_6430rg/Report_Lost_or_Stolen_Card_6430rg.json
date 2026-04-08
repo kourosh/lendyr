@@ -1,0 +1,215 @@
+{
+  "spec": {
+    "kind": "flow",
+    "name": "Report_Lost_or_Stolen_Card_6430rg",
+    "initiators": [],
+    "description": "Freezes a customer's card when it is reported as lost or stolen. Shows all cards first, then freezes the specified one.",
+    "display_name": "Report Lost or Stolen Card",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "email",
+        "card_id"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "default": "",
+          "description": "The customer's email address"
+        },
+        "card_id": {
+          "type": "integer",
+          "default": "",
+          "description": "The ID of the card to freeze"
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "required": [],
+      "properties": {
+        "result": {
+          "type": "string",
+          "description": ""
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "id": "07c9f5c1-1fd6-4247-a980-3e8a0d737a4d",
+      "end": "tool_018b2939-b51f-4dc0-a208-267ad618380b",
+      "start": "__start__"
+    },
+    {
+      "id": "06a218a7-a220-42a0-b47d-37b45a085325",
+      "end": "tool_eecad047-2afa-4991-9315-185a65d6edc1",
+      "start": "tool_018b2939-b51f-4dc0-a208-267ad618380b"
+    },
+    {
+      "id": "2ed9005c-dccf-461c-bfd6-334038e1c468",
+      "end": "__end__",
+      "start": "tool_eecad047-2afa-4991-9315-185a65d6edc1"
+    }
+  ],
+  "nodes": {
+    "__end__": {
+      "spec": {
+        "kind": "end",
+        "name": "__end__",
+        "position": {
+          "x": 0,
+          "y": 447
+        }
+      }
+    },
+    "__start__": {
+      "spec": {
+        "kind": "start",
+        "name": "__start__",
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "tool_018b2939-b51f-4dc0-a208-267ad618380b": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_018b2939-b51f-4dc0-a208-267ad618380b",
+        "tool": "get_cards_customers_email_cards_get:c729ca99-8800-4afa-a0b3-6107b99dff3e",
+        "position": {
+          "x": 0,
+          "y": 155
+        },
+        "description": "Returns all debit and credit cards for the customer.",
+        "display_name": "Get all cards",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "email"
+          ],
+          "properties": {
+            "email": {
+              "in": "path",
+              "type": "string",
+              "title": "email",
+              "aliasName": "email"
+            }
+          }
+        },
+        "output_schema": {
+          "description": "Successful Response"
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong while running 'Get all cards'",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [
+            {
+              "metadata": {
+                "assignmentType": "pyExpression"
+              },
+              "has-no-value": false,
+              "target_variable": "self.input.email",
+              "value_expression": "flow.input.email"
+            }
+          ],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    },
+    "tool_eecad047-2afa-4991-9315-185a65d6edc1": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_eecad047-2afa-4991-9315-185a65d6edc1",
+        "tool": "update_card_status_cards_card_id_status_patch:75d96ac3-c4f6-4c6b-a7bd-bc1b348105ab",
+        "position": {
+          "x": 0,
+          "y": 301
+        },
+        "description": "Updates the status of a card. Use 'frozen' to freeze or 'active' to unfreeze.",
+        "display_name": "Freeze or unfreeze a card",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "card_id",
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "in": "body",
+              "type": "string",
+              "title": "Status"
+            },
+            "card_id": {
+              "in": "path",
+              "type": "integer",
+              "title": "card_id",
+              "aliasName": "card_id"
+            }
+          }
+        },
+        "output_schema": {
+          "description": "Successful Response"
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong while running 'Freeze or unfreeze a card'",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [
+            {
+              "metadata": {
+                "assignmentType": "pyExpression"
+              },
+              "has-no-value": false,
+              "target_variable": "self.input.card_id",
+              "value_expression": "flow.input.card_id"
+            },
+            {
+              "metadata": {
+                "assignmentType": "pyExpression"
+              },
+              "has-no-value": false,
+              "target_variable": "self.input.status",
+              "value_expression": "\"frozen\""
+            }
+          ],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "metadata": {
+    "llm_model": "groq/openai/gpt-oss-120b",
+    "source_kind": "ui",
+    "is_system_generated_description": false
+  },
+  "output_map": {
+    "spec": {
+      "maps": [
+        {
+          "metadata": {
+            "assignmentType": "pyExpression"
+          },
+          "has-no-value": false,
+          "target_variable": "self.output.result",
+          "value_expression": "flow[\"Freeze or unfreeze a card\"].output"
+        }
+      ],
+      "name": "",
+      "fallback_strategy": "ask_the_user"
+    }
+  }
+}
