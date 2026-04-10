@@ -1,3 +1,0 @@
-case_id,customer_id,category,description,status,priority,created_at,resolved_at
-1,4,Card Management,Customer requesting credit card unfreeze after travel notice.,open,normal,2025-03-22 09:00:00,
-2,8,Account Access,Customer locked out after 3 failed PIN attempts.,in_progress,high,2025-03-23 11:15:00,

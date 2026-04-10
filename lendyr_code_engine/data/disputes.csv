@@ -1,3 +1,0 @@
-dispute_id,customer_id,transaction_id,reason,status,filed_at,resolved_at,notes
-1,3,61,Unauthorized charge,under_review,2025-03-18 10:00:00,,Customer reports they did not make this purchase.
-2,7,169,Merchant did not deliver goods,open,2025-03-25 15:30:00,,Customer paid but item was never shipped.

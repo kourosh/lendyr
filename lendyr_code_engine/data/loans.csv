@@ -1,7 +1,0 @@
-loan_id,account_id,original_amount,outstanding_balance,monthly_payment,next_payment_date,term_months,loan_type
-1,7,28000.0,17683.58,469.35,2026-04-13,60,auto
-2,11,320000.0,176056.31,5363.33,2026-04-24,60,mortgage
-3,17,15000.0,6448.65,252.6,2026-04-25,60,personal
-4,21,320000.0,186057.18,5363.33,2026-04-29,60,mortgage
-5,28,28000.0,19027.19,469.35,2026-04-28,60,auto
-6,31,15000.0,7240.42,252.6,2026-04-13,60,personal

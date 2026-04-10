@@ -1,4 +1,0 @@
-transfer_id,from_account_id,to_account_id,amount,status,initiated_at,debit_transaction_id,credit_transaction_id
-1,1,4,250.0,completed,2025-03-10 14:22:00,271,272
-2,15,22,100.0,completed,2025-03-15 09:45:00,273,274
-3,8,29,500.0,completed,2025-03-20 16:10:00,275,276

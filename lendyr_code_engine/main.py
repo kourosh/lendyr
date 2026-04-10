@@ -1,16 +1,19 @@
 """
 Lendyr Bank Demo API
-FastAPI + CSV files — deployed on IBM Code Engine
-No database drivers, no connection strings.
+FastAPI + DB2 Database — deployed on IBM Code Engine
+Connects to external DB2 database for all data operations.
 """
 
-import csv
 import os
-from typing import Optional
+from typing import Any, Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from routers.support_cases import router as support_cases_router
+import ibm_db
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 
@@ -20,8 +23,6 @@ app = FastAPI(
     version="1.0.0",
 )
 
-app.include_router(support_cases_router)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,49 +30,158 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Data Layer ───────────────────────────────────────────────────────────────
+# ─── Database Connection ─────────────────────────────────────────────────────
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# DB2 connection parameters
+dsn_driver = os.getenv("DRIVER")
+dsn_database = os.getenv("DATABASE")
+dsn_hostname = os.getenv("DSN_HOSTNAME")
+dsn_port = os.getenv("DSN_PORT")
+dsn_protocol = os.getenv("PROTOCOL")
+dsn_uid = os.getenv("USERNAME")
+dsn_pwd = os.getenv("PASSWORD")
+dsn_security = os.getenv("SECURITY")
 
-def load(table: str) -> list[dict]:
-    """Load a CSV file and return list of dicts."""
-    path = os.path.join(DATA_DIR, f"{table}.csv")
-    with open(path, newline="") as f:
-        return list(csv.DictReader(f))
 
-# Load all tables into memory at startup
-DB = {
-    "customers":       load("customers"),
-    "accounts":        load("accounts"),
-    "cards":           load("cards"),
-    "transactions":    load("transactions"),
-    "transfers":       load("transfers"),
-    "loans":           load("loans"),
-    "disputes":        load("disputes"),
-    "support_cases":   load("support_cases"),
-    "payment_history": load("payment_history"),
+def mask_value(value: str | None, visible: int = 2) -> str:
+    if not value:
+        return "<missing>"
+    if len(value) <= visible * 2:
+        return "*" * len(value)
+    return f"{value[:visible]}{'*' * (len(value) - (visible * 2))}{value[-visible:]}"
+
+
+required_env = {
+    "DRIVER": dsn_driver,
+    "DATABASE": dsn_database,
+    "DSN_HOSTNAME": dsn_hostname,
+    "DSN_PORT": dsn_port,
+    "PROTOCOL": dsn_protocol,
+    "USERNAME": dsn_uid,
+    "PASSWORD": dsn_pwd,
+    "SECURITY": dsn_security,
 }
 
-def get_customer_id(email: str) -> Optional[str]:
-    for row in DB["customers"]:
-        if row["email"] == email:
-            return row["customer_id"]
+missing_env = [key for key, value in required_env.items() if not value]
+if missing_env:
+    raise RuntimeError(f"Missing required environment variables: {', '.join(missing_env)}")
+
+print("---- DB2 Connection Diagnostics -----")
+print(f"DRIVER={dsn_driver}")
+print(f"DATABASE={dsn_database}")
+print(f"HOSTNAME={dsn_hostname}")
+print(f"PORT={dsn_port}")
+print(f"PROTOCOL={dsn_protocol}")
+print(f"USERNAME={mask_value(dsn_uid)}")
+print(f"PASSWORD={'<set>' if dsn_pwd else '<missing>'}")
+print(f"SECURITY={dsn_security}")
+
+dsn = (
+    "DRIVER={0};"
+    "DATABASE={1};"
+    "HOSTNAME={2};"
+    "PORT={3};"
+    "PROTOCOL={4};"
+    "UID={5};"
+    "PWD={6};"
+    "SECURITY={7};").format(dsn_driver, dsn_database, dsn_hostname, dsn_port, dsn_protocol, dsn_uid, dsn_pwd, dsn_security)
+
+# Global database connection
+db_conn = None
+
+
+def require_db_conn():
+    if db_conn is None:
+        raise RuntimeError("Database connection is not initialized")
+    return db_conn
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database connection on startup"""
+    global db_conn
+    try:
+        db_conn = ibm_db.connect(dsn, "", "")
+        print("✓ Connected to DB2 database")
+    except Exception as e:
+        print(f"✗ Failed to connect to database: {e}")
+        raise
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Close database connection on shutdown"""
+    global db_conn
+    if db_conn:
+        try:
+            ibm_db.close(db_conn)
+            print("✓ Database connection closed")
+        except:
+            pass
+
+# ─── Database Helper Functions ───────────────────────────────────────────────
+
+def query_db(sql: str, params: tuple[Any, ...] | None = None) -> list[dict]:
+    """Execute SQL query and return results as list of dicts"""
+    conn = require_db_conn()
+
+    if params:
+        stmt = ibm_db.prepare(conn, sql)
+        if not stmt:
+            raise RuntimeError(f"Failed to prepare SQL statement: {sql}")
+        for idx, value in enumerate(params):
+            ibm_db.bind_param(stmt, idx + 1, value)
+        ibm_db.execute(stmt)
+    else:
+        stmt = ibm_db.exec_immediate(conn, sql)
+        if not stmt:
+            raise RuntimeError(f"Failed to execute SQL statement: {sql}")
+
+    results = []
+    row = ibm_db.fetch_assoc(stmt)
+    while row and isinstance(row, dict):
+        # Convert all values, handling None
+        cleaned_row = {}
+        for key, value in row.items():
+            if value is None:
+                cleaned_row[key] = None
+            else:
+                cleaned_row[key] = value
+        results.append(cleaned_row)
+        row = ibm_db.fetch_assoc(stmt)
+
+    return results
+
+def execute_update(sql: str, params: tuple[Any, ...]) -> bool:
+    """Execute UPDATE/INSERT/DELETE statement"""
+    conn = require_db_conn()
+
+    stmt = ibm_db.prepare(conn, sql)
+    if not stmt:
+        raise RuntimeError(f"Failed to prepare SQL statement: {sql}")
+
+    for idx, value in enumerate(params):
+        ibm_db.bind_param(stmt, idx + 1, value)
+
+    result = ibm_db.execute(stmt)
+    return result
+
+def get_customer_id(email: str) -> Optional[int]:
+    """Get customer_id from email"""
+    sql = 'SELECT customer_id FROM "LENDYR-DEMO".CUSTOMERS WHERE email = ?'
+    results = query_db(sql, (email,))
+    if results:
+        return results[0]['CUSTOMER_ID']
     return None
 
 def clean(row: dict) -> dict:
-    """Convert empty strings to None and numeric strings to numbers."""
+    """Convert database row to clean dict with proper types"""
     result = {}
     for k, v in row.items():
-        if v == "" or v == "None":
-            result[k] = None
+        # Convert key to lowercase for consistency
+        key = k.lower()
+        if v is None or v == "" or v == "None":
+            result[key] = None
         else:
-            try:
-                result[k] = int(v)
-            except (ValueError, TypeError):
-                try:
-                    result[k] = float(v)
-                except (ValueError, TypeError):
-                    result[k] = v
+            result[key] = v
     return result
 
 # ─── Models ──────────────────────────────────────────────────────────────────
@@ -93,9 +203,10 @@ def health():
     summary="Get customer profile",
     description="Returns full profile for a customer identified by their email address.")
 def get_customer(email: str):
-    for row in DB["customers"]:
-        if row["email"] == email:
-            return clean(row)
+    sql = 'SELECT * FROM "LENDYR-DEMO".CUSTOMERS WHERE email = ?'
+    results = query_db(sql, (email,))
+    if results:
+        return clean(results[0])
     raise HTTPException(status_code=404, detail="Customer not found")
 
 
@@ -106,10 +217,14 @@ def get_accounts(email: str):
     cid = get_customer_id(email)
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
-    rows = [clean(r) for r in DB["accounts"] if r["customer_id"] == cid]
-    if not rows:
+    
+    sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? ORDER BY account_type'
+    results = query_db(sql, (cid,))
+    
+    if not results:
         raise HTTPException(status_code=404, detail="No accounts found")
-    return sorted(rows, key=lambda r: r["account_type"])
+    
+    return [clean(r) for r in results]
 
 
 @app.get("/customers/{email}/accounts/{account_type}", tags=["Accounts"],
@@ -119,9 +234,12 @@ def get_account_by_type(email: str, account_type: str):
     cid = get_customer_id(email)
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
-    for row in DB["accounts"]:
-        if row["customer_id"] == cid and row["account_type"] == account_type:
-            return clean(row)
+    
+    sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+    results = query_db(sql, (cid, account_type))
+    
+    if results:
+        return clean(results[0])
     raise HTTPException(status_code=404, detail=f"No {account_type} account found")
 
 
@@ -137,28 +255,29 @@ def get_transactions(
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    # Get account IDs for this customer
-    account_ids = {r["account_id"] for r in DB["accounts"] if r["customer_id"] == cid}
+    # Build SQL query with JOIN
     if account_type:
-        account_ids = {
-            r["account_id"] for r in DB["accounts"]
-            if r["customer_id"] == cid and r["account_type"] == account_type
-        }
+        sql = '''
+            SELECT t.*, a.account_type, a.account_number
+            FROM "LENDYR-DEMO".TRANSACTIONS t
+            JOIN "LENDYR-DEMO".ACCOUNTS a ON t.account_id = a.account_id
+            WHERE a.customer_id = ? AND a.account_type = ?
+            ORDER BY t.created_at DESC
+            FETCH FIRST ? ROWS ONLY
+        '''
+        results = query_db(sql, (cid, account_type, limit))
+    else:
+        sql = '''
+            SELECT t.*, a.account_type, a.account_number
+            FROM "LENDYR-DEMO".TRANSACTIONS t
+            JOIN "LENDYR-DEMO".ACCOUNTS a ON t.account_id = a.account_id
+            WHERE a.customer_id = ?
+            ORDER BY t.created_at DESC
+            FETCH FIRST ? ROWS ONLY
+        '''
+        results = query_db(sql, (cid, limit))
 
-    # Build account_type lookup
-    acct_lookup = {r["account_id"]: r for r in DB["accounts"]}
-
-    rows = []
-    for t in DB["transactions"]:
-        if t["account_id"] in account_ids:
-            row = clean(t)
-            acct = acct_lookup.get(t["account_id"], {})
-            row["account_type"] = acct.get("account_type")
-            row["account_number"] = acct.get("account_number")
-            rows.append(row)
-
-    rows.sort(key=lambda r: r.get("created_at") or "", reverse=True)
-    return rows[:limit]
+    return [clean(r) for r in results]
 
 
 @app.get("/customers/{email}/transfers", tags=["Transfers"],
@@ -169,19 +288,19 @@ def get_transfers(email: str):
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
 
-    account_ids = {r["account_id"] for r in DB["accounts"] if r["customer_id"] == cid}
-    acct_lookup = {r["account_id"]: r["account_number"] for r in DB["accounts"]}
-
-    rows = []
-    for t in DB["transfers"]:
-        if t["from_account_id"] in account_ids or t["to_account_id"] in account_ids:
-            row = clean(t)
-            row["from_account"] = acct_lookup.get(t["from_account_id"])
-            row["to_account"] = acct_lookup.get(t["to_account_id"])
-            rows.append(row)
-
-    rows.sort(key=lambda r: r.get("initiated_at") or "", reverse=True)
-    return rows
+    sql = '''
+        SELECT t.*, 
+               a1.account_number as from_account,
+               a2.account_number as to_account
+        FROM "LENDYR-DEMO".TRANSFERS t
+        LEFT JOIN "LENDYR-DEMO".ACCOUNTS a1 ON t.from_account_id = a1.account_id
+        LEFT JOIN "LENDYR-DEMO".ACCOUNTS a2 ON t.to_account_id = a2.account_id
+        WHERE a1.customer_id = ? OR a2.customer_id = ?
+        ORDER BY t.initiated_at DESC
+    '''
+    results = query_db(sql, (cid, cid))
+    
+    return [clean(r) for r in results]
 
 
 @app.get("/customers/{email}/cards", tags=["Cards"],
@@ -191,16 +310,20 @@ def get_cards(email: str):
     cid = get_customer_id(email)
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
-    acct_lookup = {r["account_id"]: r["account_type"] for r in DB["accounts"]}
-    rows = []
-    for c in DB["cards"]:
-        if c["customer_id"] == cid:
-            row = clean(c)
-            row["account_type"] = acct_lookup.get(c["account_id"])
-            rows.append(row)
-    if not rows:
+    
+    sql = '''
+        SELECT c.*, a.account_type
+        FROM "LENDYR-DEMO".CARDS c
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON c.account_id = a.account_id
+        WHERE c.customer_id = ?
+        ORDER BY c.card_type
+    '''
+    results = query_db(sql, (cid,))
+    
+    if not results:
         raise HTTPException(status_code=404, detail="No cards found")
-    return sorted(rows, key=lambda r: r["card_type"])
+    
+    return [clean(r) for r in results]
 
 
 @app.patch("/cards/{card_id}/status", tags=["Cards"],
@@ -209,11 +332,19 @@ def get_cards(email: str):
 def update_card_status(card_id: int, body: CardStatusUpdate):
     if body.status not in ("active", "frozen", "blocked"):
         raise HTTPException(status_code=400, detail="Status must be 'active', 'frozen', or 'blocked'")
-    for row in DB["cards"]:
-        if row["card_id"] == str(card_id):
-            row["status"] = body.status
-            return {"card_id": card_id, "status": body.status, "message": f"Card successfully set to {body.status}"}
-    raise HTTPException(status_code=404, detail="Card not found")
+    
+    # Check if card exists
+    check_sql = 'SELECT card_id FROM "LENDYR-DEMO".CARDS WHERE card_id = ?'
+    results = query_db(check_sql, (card_id,))
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    # Update card status
+    update_sql = 'UPDATE "LENDYR-DEMO".CARDS SET status = ? WHERE card_id = ?'
+    execute_update(update_sql, (body.status, card_id))
+    
+    return {"card_id": card_id, "status": body.status, "message": f"Card successfully set to {body.status}"}
 
 
 @app.patch("/cards/{card_id}/limit", tags=["Cards"],
@@ -222,11 +353,19 @@ def update_card_status(card_id: int, body: CardStatusUpdate):
 def update_card_limit(card_id: int, body: CardLimitUpdate):
     if body.daily_limit <= 0:
         raise HTTPException(status_code=400, detail="Daily limit must be greater than 0")
-    for row in DB["cards"]:
-        if row["card_id"] == str(card_id):
-            row["daily_limit"] = str(body.daily_limit)
-            return {"card_id": card_id, "daily_limit": body.daily_limit, "message": "Daily limit updated successfully"}
-    raise HTTPException(status_code=404, detail="Card not found")
+    
+    # Check if card exists
+    check_sql = 'SELECT card_id FROM "LENDYR-DEMO".CARDS WHERE card_id = ?'
+    results = query_db(check_sql, (card_id,))
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    # Update card limit
+    update_sql = 'UPDATE "LENDYR-DEMO".CARDS SET daily_limit = ? WHERE card_id = ?'
+    execute_update(update_sql, (body.daily_limit, card_id))
+    
+    return {"card_id": card_id, "daily_limit": body.daily_limit, "message": "Daily limit updated successfully"}
 
 
 @app.get("/customers/{email}/loans", tags=["Loans"],
@@ -236,17 +375,19 @@ def get_loans(email: str):
     cid = get_customer_id(email)
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
-    account_ids = {r["account_id"] for r in DB["accounts"] if r["customer_id"] == cid}
-    acct_lookup = {r["account_id"]: r for r in DB["accounts"]}
-    rows = []
-    for l in DB["loans"]:
-        if l["account_id"] in account_ids:
-            row = clean(l)
-            row["interest_rate"] = clean(acct_lookup.get(l["account_id"], {})).get("interest_rate")
-            rows.append(row)
-    if not rows:
+    
+    sql = '''
+        SELECT l.*, a.interest_rate
+        FROM "LENDYR-DEMO".LOANS l
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON l.account_id = a.account_id
+        WHERE a.customer_id = ?
+    '''
+    results = query_db(sql, (cid,))
+    
+    if not results:
         raise HTTPException(status_code=404, detail="No loans found")
-    return rows
+    
+    return [clean(r) for r in results]
 
 
 @app.get("/customers/{email}/disputes", tags=["Disputes"],
@@ -256,167 +397,16 @@ def get_disputes(email: str):
     cid = get_customer_id(email)
     if not cid:
         raise HTTPException(status_code=404, detail="Customer not found")
-    txn_lookup = {r["transaction_id"]: r for r in DB["transactions"]}
-    rows = []
-    for d in DB["disputes"]:
-        if d["customer_id"] == cid:
-            row = clean(d)
-            txn = txn_lookup.get(d["transaction_id"], {})
-            row["merchant_name"] = txn.get("merchant_name")
-            row["amount"] = txn.get("amount")
-            row["transaction_date"] = txn.get("created_at")
-            rows.append(row)
-    rows.sort(key=lambda r: r.get("filed_at") or "", reverse=True)
-    return rows
+    
+    sql = '''
+        SELECT d.*, t.merchant_name, t.amount, t.created_at as transaction_date
+        FROM "LENDYR-DEMO".DISPUTES d
+        JOIN "LENDYR-DEMO".TRANSACTIONS t ON d.transaction_id = t.transaction_id
+        WHERE d.customer_id = ?
+        ORDER BY d.filed_at DESC
+    '''
+    results = query_db(sql, (cid,))
+    
+    return [clean(r) for r in results]
 
-
-
-@app.get("/customers/{email}/payment-history", tags=["Loans"],
-    summary="Get loan payment history",
-    description="Returns payment history for customer's loans showing on-time vs late payments.")
-def get_payment_history(email: str):
-    cid = get_customer_id(email)
-    if not cid:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    rows = [clean(r) for r in DB["payment_history"] if r["customer_id"] == cid]
-    if not rows:
-        return []
-    
-    rows.sort(key=lambda r: r.get("payment_date") or "", reverse=True)
-    
-    # Calculate summary statistics
-    total_payments = len(rows)
-    on_time_payments = len([r for r in rows if r["status"] == "on_time"])
-    late_payments = len([r for r in rows if r["status"] == "late"])
-    
-    return {
-        "payments": rows,
-        "summary": {
-            "total_payments": total_payments,
-            "on_time_payments": on_time_payments,
-            "late_payments": late_payments,
-            "on_time_percentage": round((on_time_payments / total_payments * 100), 2) if total_payments > 0 else 0
-        }
-    }
-
-
-class LoanDeferralRequest(BaseModel):
-    loan_id: int
-    deferral_days: int = 30
-    reason: str
-
-
-@app.post("/customers/{email}/loans/{loan_id}/defer", tags=["Loans"],
-    summary="Request loan payment deferral",
-    description="Request to defer a loan payment. Requires credit score >= 700 and no missed payments.")
-def request_loan_deferral(email: str, loan_id: int, request: LoanDeferralRequest):
-    cid = get_customer_id(email)
-    if not cid:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    # Get customer credit score
-    customer = None
-    for c in DB["customers"]:
-        if c["customer_id"] == cid:
-            customer = clean(c)
-            break
-    
-    if not customer:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    credit_score = customer.get("credit_score", 0)
-    
-    # Get loan details
-    loan = None
-    for l in DB["loans"]:
-        if l["loan_id"] == str(loan_id) and l["account_id"] in [a["account_id"] for a in DB["accounts"] if a["customer_id"] == cid]:
-            loan = clean(l)
-            break
-    
-    if not loan:
-        raise HTTPException(status_code=404, detail="Loan not found")
-    
-    # Check payment history
-    payment_history = [r for r in DB["payment_history"] if r["customer_id"] == cid and r["loan_id"] == str(loan_id)]
-    missed_payments = len([p for p in payment_history if p["status"] == "late"])
-    
-    # Eligibility criteria
-    eligible = credit_score >= 700 and missed_payments == 0
-    
-    if not eligible:
-        reasons = []
-        if credit_score < 700:
-            reasons.append(f"Credit score ({credit_score}) is below required minimum of 700")
-        if missed_payments > 0:
-            reasons.append(f"Account has {missed_payments} missed payment(s)")
-        
-        return {
-            "approved": False,
-            "reason": "Deferral request denied. " + "; ".join(reasons),
-            "credit_score": credit_score,
-            "missed_payments": missed_payments,
-            "eligibility_criteria": {
-                "minimum_credit_score": 700,
-                "maximum_missed_payments": 0
-            }
-        }
-    
-    # Calculate deferral impact
-    from datetime import datetime, timedelta
-    
-    monthly_payment = float(loan["monthly_payment"])
-    interest_rate = float(loan["interest_rate"]) / 100 / 12  # Monthly interest rate
-    outstanding_balance = float(loan["outstanding_balance"])
-    
-    # Interest accrued during deferral period
-    deferral_months = request.deferral_days / 30
-    interest_accrued = outstanding_balance * interest_rate * deferral_months
-    
-    # New balance after deferral
-    new_balance = outstanding_balance + interest_accrued
-    
-    # Calculate new payment date
-    current_due_date = datetime.strptime(loan["next_payment_date"], "%Y-%m-%d")
-    new_due_date = current_due_date + timedelta(days=request.deferral_days)
-    
-    # Calculate impact on final payoff
-    remaining_months = loan["term_months"] - len(payment_history)
-    extended_months = deferral_months
-    new_final_date = current_due_date + timedelta(days=remaining_months * 30 + request.deferral_days)
-    
-    # Update loan in memory (for demo purposes)
-    for l in DB["loans"]:
-        if l["loan_id"] == str(loan_id):
-            l["outstanding_balance"] = f"{new_balance:.2f}"
-            l["next_payment_date"] = new_due_date.strftime("%Y-%m-%d")
-            break
-    
-    return {
-        "approved": True,
-        "message": "Loan deferral approved",
-        "customer_name": f"{customer['first_name']} {customer['last_name']}",
-        "credit_score": credit_score,
-        "payment_history": {
-            "total_payments": len(payment_history),
-            "missed_payments": missed_payments,
-            "on_time_percentage": 100.0
-        },
-        "deferral_details": {
-            "original_due_date": loan["next_payment_date"],
-            "new_due_date": new_due_date.strftime("%Y-%m-%d"),
-            "deferral_days": request.deferral_days,
-            "monthly_payment": monthly_payment
-        },
-        "financial_impact": {
-            "original_balance": outstanding_balance,
-            "interest_accrued": round(interest_accrued, 2),
-            "new_balance": round(new_balance, 2),
-            "balance_increase": round(interest_accrued, 2),
-            "interest_rate_annual": loan["interest_rate"] + "%"
-        },
-        "terms": {
-            "agreement_required": True,
-            "terms_text": f"By accepting this deferral, you agree that: (1) Your loan balance will increase by ${interest_accrued:.2f} due to accrued interest during the deferral period; (2) Your next payment of ${monthly_payment:.2f} will be due on {new_due_date.strftime('%B %d, %Y')}; (3) Your final loan payoff date will be extended by approximately {int(extended_months)} month(s); (4) This deferral is a one-time courtesy and future deferrals are not guaranteed."
-        }
-    }
+# Made with Bob
