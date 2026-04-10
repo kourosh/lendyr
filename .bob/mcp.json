@@ -1,1 +1,8 @@
-{"mcpServers":{}}
+{
+  "mcpServers": {
+    "watsonx-orchestrate-adk-docs": {
+      "type": "streamable-http",
+      "url": "https://developer.watson-orchestrate.ibm.com/mcp"
+    }
+  }
+}

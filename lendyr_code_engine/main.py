@@ -409,4 +409,152 @@ def get_disputes(email: str):
     
     return [clean(r) for r in results]
 
+@app.get("/customers/{email}/payment-history", tags=["Loans"],
+    summary="Get payment history",
+    description="Returns payment history with statistics for credit evaluation.")
+def get_payment_history(email: str):
+    cid = get_customer_id(email)
+    if not cid:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    # Get customer credit score
+    customer_sql = 'SELECT credit_score FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (cid,))
+    credit_score = customer_results[0]['CREDIT_SCORE'] if customer_results else None
+    
+    # Get payment history
+    sql = '''
+        SELECT payment_id, payment_date, payment_amount, was_late, days_late, auto_pay_used, note
+        FROM "LENDYR-DEMO".PAYMENT_HISTORY
+        WHERE customer_id = ?
+        ORDER BY payment_date DESC
+    '''
+    results = query_db(sql, (cid,))
+    
+    # Calculate statistics
+    total_payments = len(results)
+    on_time_payments = sum(1 for r in results if r['WAS_LATE'] == 0)
+    missed_payments = sum(1 for r in results if r['WAS_LATE'] == 1)
+    on_time_percentage = (on_time_payments / total_payments * 100) if total_payments > 0 else 0
+    
+    return {
+        "customer_id": cid,
+        "credit_score": credit_score,
+        "payment_history": [clean(r) for r in results],
+        "statistics": {
+            "total_payments": total_payments,
+            "on_time_payments": on_time_payments,
+            "missed_payments": missed_payments,
+            "on_time_percentage": round(on_time_percentage, 2)
+        }
+    }
+
+
+class LoanDeferralRequest(BaseModel):
+    reason: str
+
+
+@app.post("/customers/{email}/loans/{loan_id}/defer", tags=["Loans"],
+    summary="Request loan payment deferral",
+    description="Autonomous loan deferral approval based on credit score and payment history.")
+def request_loan_deferral(email: str, loan_id: str, body: LoanDeferralRequest):
+    cid = get_customer_id(email)
+    if not cid:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    # Get customer credit score
+    customer_sql = 'SELECT credit_score, first_name, last_name FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (cid,))
+    if not customer_results:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    credit_score = customer_results[0]['CREDIT_SCORE']
+    customer_name = f"{customer_results[0]['FIRST_NAME']} {customer_results[0]['LAST_NAME']}"
+    
+    # Get payment history statistics
+    payment_sql = '''
+        SELECT COUNT(*) as total_payments,
+               SUM(CASE WHEN was_late = 0 THEN 1 ELSE 0 END) as on_time_payments,
+               SUM(CASE WHEN was_late = 1 THEN 1 ELSE 0 END) as missed_payments
+        FROM "LENDYR-DEMO".PAYMENT_HISTORY
+        WHERE customer_id = ?
+    '''
+    payment_results = query_db(payment_sql, (cid,))
+    
+    total_payments = payment_results[0]['TOTAL_PAYMENTS'] if payment_results else 0
+    on_time_payments = payment_results[0]['ON_TIME_PAYMENTS'] if payment_results else 0
+    missed_payments = payment_results[0]['MISSED_PAYMENTS'] if payment_results else 0
+    on_time_percentage = (on_time_payments / total_payments * 100) if total_payments > 0 else 0
+    
+    # Get loan details
+    loan_sql = '''
+        SELECT l.*, a.interest_rate
+        FROM "LENDYR-DEMO".LOANS l
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON l.account_id = a.account_id
+        WHERE l.loan_id = ? AND a.customer_id = ?
+    '''
+    loan_results = query_db(loan_sql, (loan_id, cid))
+    
+    if not loan_results:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    
+    loan = clean(loan_results[0])
+    
+    # Autonomous decision logic
+    # Approve if: credit_score >= 700 AND missed_payments == 0
+    if credit_score >= 700 and missed_payments == 0:
+        approval_status = "approved"
+        approval_reason = f"Approved based on excellent credit score ({credit_score}) and perfect payment history ({on_time_payments}/{total_payments} on-time payments)"
+    else:
+        approval_status = "denied"
+        reasons = []
+        if credit_score < 700:
+            reasons.append(f"credit score below threshold ({credit_score} < 700)")
+        if missed_payments > 0:
+            reasons.append(f"{missed_payments} missed payment(s)")
+        approval_reason = f"Denied due to: {', '.join(reasons)}"
+    
+    # Calculate deferral impact (if approved)
+    monthly_payment = float(loan['monthly_payment'])
+    outstanding_balance = float(loan['outstanding_balance'])
+    interest_rate = float(loan['interest_rate'])
+    
+    # Calculate one month's interest on the deferred payment
+    monthly_interest_rate = interest_rate / 12 / 100
+    interest_on_deferred_payment = monthly_payment * monthly_interest_rate
+    new_balance = outstanding_balance + interest_on_deferred_payment
+    
+    # Extend payoff date by 1 month
+    from datetime import datetime, timedelta, date
+    next_payment_date = loan['next_payment_date']
+    # Convert to datetime if it's a date object
+    if isinstance(next_payment_date, date) and not isinstance(next_payment_date, datetime):
+        next_payment_date = datetime.combine(next_payment_date, datetime.min.time())
+    elif isinstance(next_payment_date, str):
+        next_payment_date = datetime.strptime(next_payment_date, '%Y-%m-%d')
+    new_payment_date = next_payment_date + timedelta(days=30)
+    
+    return {
+        "loan_id": loan_id,
+        "customer_name": customer_name,
+        "approval_status": approval_status,
+        "approval_reason": approval_reason,
+        "deferral_details": {
+            "reason": body.reason,
+            "deferred_payment_amount": monthly_payment,
+            "interest_accrued": round(interest_on_deferred_payment, 2),
+            "new_outstanding_balance": round(new_balance, 2),
+            "original_next_payment_date": loan['next_payment_date'],
+            "new_next_payment_date": new_payment_date.strftime('%Y-%m-%d')
+        },
+        "credit_evaluation": {
+            "credit_score": credit_score,
+            "total_payments": total_payments,
+            "on_time_payments": on_time_payments,
+            "missed_payments": missed_payments,
+            "on_time_percentage": round(on_time_percentage, 2)
+        }
+    }
+
+
 # Made with Bob
