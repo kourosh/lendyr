@@ -41,14 +41,15 @@ def load(table: str) -> list[dict]:
 
 # Load all tables into memory at startup
 DB = {
-    "customers":     load("customers"),
-    "accounts":      load("accounts"),
-    "cards":         load("cards"),
-    "transactions":  load("transactions"),
-    "transfers":     load("transfers"),
-    "loans":         load("loans"),
-    "disputes":      load("disputes"),
-    "support_cases": load("support_cases"),
+    "customers":       load("customers"),
+    "accounts":        load("accounts"),
+    "cards":           load("cards"),
+    "transactions":    load("transactions"),
+    "transfers":       load("transfers"),
+    "loans":           load("loans"),
+    "disputes":        load("disputes"),
+    "support_cases":   load("support_cases"),
+    "payment_history": load("payment_history"),
 }
 
 def get_customer_id(email: str) -> Optional[str]:
@@ -267,3 +268,155 @@ def get_disputes(email: str):
             rows.append(row)
     rows.sort(key=lambda r: r.get("filed_at") or "", reverse=True)
     return rows
+
+
+
+@app.get("/customers/{email}/payment-history", tags=["Loans"],
+    summary="Get loan payment history",
+    description="Returns payment history for customer's loans showing on-time vs late payments.")
+def get_payment_history(email: str):
+    cid = get_customer_id(email)
+    if not cid:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    rows = [clean(r) for r in DB["payment_history"] if r["customer_id"] == cid]
+    if not rows:
+        return []
+    
+    rows.sort(key=lambda r: r.get("payment_date") or "", reverse=True)
+    
+    # Calculate summary statistics
+    total_payments = len(rows)
+    on_time_payments = len([r for r in rows if r["status"] == "on_time"])
+    late_payments = len([r for r in rows if r["status"] == "late"])
+    
+    return {
+        "payments": rows,
+        "summary": {
+            "total_payments": total_payments,
+            "on_time_payments": on_time_payments,
+            "late_payments": late_payments,
+            "on_time_percentage": round((on_time_payments / total_payments * 100), 2) if total_payments > 0 else 0
+        }
+    }
+
+
+class LoanDeferralRequest(BaseModel):
+    loan_id: int
+    deferral_days: int = 30
+    reason: str
+
+
+@app.post("/customers/{email}/loans/{loan_id}/defer", tags=["Loans"],
+    summary="Request loan payment deferral",
+    description="Request to defer a loan payment. Requires credit score >= 700 and no missed payments.")
+def request_loan_deferral(email: str, loan_id: int, request: LoanDeferralRequest):
+    cid = get_customer_id(email)
+    if not cid:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    # Get customer credit score
+    customer = None
+    for c in DB["customers"]:
+        if c["customer_id"] == cid:
+            customer = clean(c)
+            break
+    
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    credit_score = customer.get("credit_score", 0)
+    
+    # Get loan details
+    loan = None
+    for l in DB["loans"]:
+        if l["loan_id"] == str(loan_id) and l["account_id"] in [a["account_id"] for a in DB["accounts"] if a["customer_id"] == cid]:
+            loan = clean(l)
+            break
+    
+    if not loan:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    
+    # Check payment history
+    payment_history = [r for r in DB["payment_history"] if r["customer_id"] == cid and r["loan_id"] == str(loan_id)]
+    missed_payments = len([p for p in payment_history if p["status"] == "late"])
+    
+    # Eligibility criteria
+    eligible = credit_score >= 700 and missed_payments == 0
+    
+    if not eligible:
+        reasons = []
+        if credit_score < 700:
+            reasons.append(f"Credit score ({credit_score}) is below required minimum of 700")
+        if missed_payments > 0:
+            reasons.append(f"Account has {missed_payments} missed payment(s)")
+        
+        return {
+            "approved": False,
+            "reason": "Deferral request denied. " + "; ".join(reasons),
+            "credit_score": credit_score,
+            "missed_payments": missed_payments,
+            "eligibility_criteria": {
+                "minimum_credit_score": 700,
+                "maximum_missed_payments": 0
+            }
+        }
+    
+    # Calculate deferral impact
+    from datetime import datetime, timedelta
+    
+    monthly_payment = float(loan["monthly_payment"])
+    interest_rate = float(loan["interest_rate"]) / 100 / 12  # Monthly interest rate
+    outstanding_balance = float(loan["outstanding_balance"])
+    
+    # Interest accrued during deferral period
+    deferral_months = request.deferral_days / 30
+    interest_accrued = outstanding_balance * interest_rate * deferral_months
+    
+    # New balance after deferral
+    new_balance = outstanding_balance + interest_accrued
+    
+    # Calculate new payment date
+    current_due_date = datetime.strptime(loan["next_payment_date"], "%Y-%m-%d")
+    new_due_date = current_due_date + timedelta(days=request.deferral_days)
+    
+    # Calculate impact on final payoff
+    remaining_months = loan["term_months"] - len(payment_history)
+    extended_months = deferral_months
+    new_final_date = current_due_date + timedelta(days=remaining_months * 30 + request.deferral_days)
+    
+    # Update loan in memory (for demo purposes)
+    for l in DB["loans"]:
+        if l["loan_id"] == str(loan_id):
+            l["outstanding_balance"] = f"{new_balance:.2f}"
+            l["next_payment_date"] = new_due_date.strftime("%Y-%m-%d")
+            break
+    
+    return {
+        "approved": True,
+        "message": "Loan deferral approved",
+        "customer_name": f"{customer['first_name']} {customer['last_name']}",
+        "credit_score": credit_score,
+        "payment_history": {
+            "total_payments": len(payment_history),
+            "missed_payments": missed_payments,
+            "on_time_percentage": 100.0
+        },
+        "deferral_details": {
+            "original_due_date": loan["next_payment_date"],
+            "new_due_date": new_due_date.strftime("%Y-%m-%d"),
+            "deferral_days": request.deferral_days,
+            "monthly_payment": monthly_payment
+        },
+        "financial_impact": {
+            "original_balance": outstanding_balance,
+            "interest_accrued": round(interest_accrued, 2),
+            "new_balance": round(new_balance, 2),
+            "balance_increase": round(interest_accrued, 2),
+            "interest_rate_annual": loan["interest_rate"] + "%"
+        },
+        "terms": {
+            "agreement_required": True,
+            "terms_text": f"By accepting this deferral, you agree that: (1) Your loan balance will increase by ${interest_accrued:.2f} due to accrued interest during the deferral period; (2) Your next payment of ${monthly_payment:.2f} will be due on {new_due_date.strftime('%B %d, %Y')}; (3) Your final loan payoff date will be extended by approximately {int(extended_months)} month(s); (4) This deferral is a one-time courtesy and future deferrals are not guaranteed."
+        }
+    }

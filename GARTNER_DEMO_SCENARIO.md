@@ -24,7 +24,7 @@ This scenario demonstrates how multiple AI agents collaborate seamlessly to help
 - **Auto Loan:** $17,683.58 outstanding, $469.35 monthly payment @ 6.9% APR
 
 ### Customer's Concern
-Brian is worried about making his upcoming auto loan payment while maintaining enough buffer in his checking account for daily expenses. He wants to explore his options.
+Brian is worried about making his upcoming auto loan payment while maintaining enough buffer in his checking account for daily expenses. He wants to explore his options, including the possibility of deferring the payment by 30 days.
 
 ---
 
@@ -66,6 +66,37 @@ Brian is worried about making his upcoming auto loan payment while maintaining e
 - Automatic tool invocation without asking for clarification
 - Clear presentation of financial data
 - Context-aware routing to next specialist
+
+---
+
+### 2b. Customer Requests Deferral - Loan Agent (NEW!)
+**Customer:** "Actually, could I defer this payment by 30 days? I'd feel more comfortable with that."
+
+**Agent Actions:**
+- Calls `get_payment_history` tool to check Brian's payment record
+- Calls `get_customer` tool to check credit score
+- Evaluates eligibility:
+  - Credit score: 755 ✅ (above 700 threshold)
+  - Payment history: 45 consecutive on-time payments ✅ (no missed payments)
+  - **ELIGIBLE for deferral**
+- Calls `request_loan_deferral` tool with:
+  - loan_id: 1
+  - deferral_days: 30
+  - reason: "Customer needs additional time for cash flow management"
+- Presents deferral approval with full transparency:
+  - **New payment date:** May 13th, 2026
+  - **Interest accrued:** ~$102.15 (one month at 6.9% APR)
+  - **New loan balance:** $17,785.73
+  - **Impact:** Final payoff extended by ~1 month
+  - **Terms:** Must agree that balance increases and payoff date extends
+- Asks for explicit customer confirmation
+
+**Key Demonstration Points:**
+- **Autonomous decision-making** based on risk assessment
+- **Multi-tool orchestration** (3 API calls to evaluate eligibility)
+- **Transparent AI** - clearly explains financial impact
+- **Compliance-ready** - requires customer agreement to terms
+- **Real-time credit evaluation** - no human approval needed for qualified customers
 
 ---
 
@@ -148,38 +179,50 @@ Brian is worried about making his upcoming auto loan payment while maintaining e
 ## Technical Highlights for Gartner Analysts
 
 ### 1. **Intelligent Agent Orchestration**
-- 5 agent interactions (Customer Care → Loan → Account → Card → Customer Care)
+- 5+ agent interactions (Customer Care → Loan → Account → Card → Customer Care)
 - Context maintained across all handoffs
 - Each agent has specialized knowledge and tools
 - No manual routing required - agents decide next steps
 
 ### 2. **API Integration**
-- 6 different API calls across 4 agents:
-  - `get_customer` (Customer Care)
+- 9+ different API calls across 4 agents:
+  - `get_customer` (Customer Care, Loan Agent)
   - `get_loans` (Loan Agent)
+  - `get_payment_history` (Loan Agent)
+  - `request_loan_deferral` (Loan Agent)
   - `get_accounts` (Account Agent)
   - `get_transactions` (Account Agent)
   - `get_cards` (Card Agent)
 - Real-time data from live database
 - Seamless tool invocation
 
-### 3. **Natural Language Understanding**
+### 3. **Autonomous Decision-Making** ⭐ NEW!
+- **Credit Risk Assessment:** Agent evaluates credit score (755) and payment history (45 on-time payments)
+- **Automated Approval:** No human intervention for qualified customers
+- **Transparent AI:** Clearly explains decision criteria and financial impact
+- **Compliance-Ready:** Requires customer agreement to terms
+- **Real-time Calculation:** Computes interest accrual, new balance, extended payoff date
+- **Audit Trail:** All decisions logged with reasoning
+
+### 4. **Natural Language Understanding**
 - Understands "stressed about payment" → routes to loan specialist
-- Recognizes need for "cash flow analysis" → involves account agent
+- Recognizes "defer payment" → triggers eligibility evaluation
 - Identifies "backup options" → engages card specialist
 - No rigid scripts or decision trees
 
-### 4. **Business Value**
-- **Customer Experience:** Single conversation, multiple specialists
+### 5. **Business Value**
+- **Customer Experience:** Single conversation, multiple specialists, instant decisions
 - **Efficiency:** 5-minute resolution vs. multiple calls/transfers
 - **Accuracy:** Real-time data, no manual lookups
 - **Scalability:** Handles complex scenarios without human escalation
+- **Risk Management:** Automated credit evaluation with configurable thresholds
 
-### 5. **Enterprise Readiness**
+### 6. **Enterprise Readiness**
 - Modular agent architecture (easy to add/modify agents)
 - Tool-based integration (works with any API)
-- Audit trail of all agent interactions
+- Audit trail of all agent interactions and decisions
 - Configurable LLM models per agent
+- Configurable business rules (credit score thresholds, deferral limits)
 
 ---
 
