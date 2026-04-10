@@ -10,6 +10,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from routers.support_cases import router as support_cases_router
 
 # ─── App ─────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,8 @@ app = FastAPI(
     description="Customer care REST API for the Lendyr Bank watsonx Orchestrate demo.",
     version="1.0.0",
 )
+
+app.include_router(support_cases_router)
 
 app.add_middleware(
     CORSMiddleware,

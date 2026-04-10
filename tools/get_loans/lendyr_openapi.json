@@ -572,7 +572,7 @@
   },
   "servers": [
     {
-      "url": "https://lendyr-bank-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud"
+      "url": "https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud"
     }
   ]
 }

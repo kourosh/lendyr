@@ -1,0 +1,17 @@
+kind: skill
+name: get_customer_disputes
+description: >
+  Retrieves open and historical transaction disputes for a Lendyr Bank customer.
+  Use this when a customer asks about a disputed charge, unauthorized transaction,
+  or wants a status update on a dispute they have filed.
+version: 1.0.0
+
+openapi:
+  url: https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud/openapi.json
+  operations:
+    - operationId: getCustomerDisputes
+      description: >
+        Fetches all disputes filed by the customer. Returns dispute reason,
+        status (open / under_review / resolved), merchant name, amount, and
+        bank notes. Always call this when the customer mentions a disputed
+        or unrecognized charge.
