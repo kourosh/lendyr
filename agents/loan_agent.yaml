@@ -46,7 +46,7 @@ instructions: >
   - get_loans: view loan details including balance, payments, and interest rate
   - get_payment_history: view customer's loan payment history
   - request_loan_deferral: process a loan payment deferral request
-llm: watsonx/ibm/granite-3-8b-instruct
+llm: groq/openai/gpt-oss-120b
 style: default
 tools:
   - get_customer_customers_email_get

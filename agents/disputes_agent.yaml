@@ -36,7 +36,7 @@ instructions: >
 
   Always format currency amounts with dollar signs (e.g., $123.45) and dates
   in a readable format (e.g., March 15, 2025).
-llm: watsonx/ibm/granite-3-8b-instruct
+llm: groq/openai/gpt-oss-120b
 style: default
 tools:
   - get_customer_customers_email_get

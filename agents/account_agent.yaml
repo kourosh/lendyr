@@ -18,7 +18,7 @@ instructions: >
   When asked about transactions, call get_transactions.
   When asked about transfers, call get_transfers.
   ...rest of instructions unchanged...
-llm: watsonx/ibm/granite-3-8b-instruct
+llm: groq/openai/gpt-oss-120b
 style: default
 tools:
   - get_customer_customers_email_get

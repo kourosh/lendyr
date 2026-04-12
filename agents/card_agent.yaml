@@ -29,7 +29,7 @@ instructions: >
   - active: card is working normally
   - frozen: card is temporarily blocked, can be unfrozen
   - blocked: card is permanently blocked and cannot be reactivated
-llm: watsonx/ibm/granite-3-8b-instruct
+llm: groq/openai/gpt-oss-120b
 style: default
 tools:
   - get_customer_customers_email_get
