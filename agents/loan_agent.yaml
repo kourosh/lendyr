@@ -1,6 +1,6 @@
 spec_version: v1
 kind: native
-name: loan_agent
+name: Loan Agent
 description: >
   Specialist agent for Lendyr Bank that handles loan inquiries including
   checking outstanding balances, upcoming payment dates, monthly payment

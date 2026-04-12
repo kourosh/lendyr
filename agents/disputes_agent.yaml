@@ -1,6 +1,6 @@
 spec_version: v1
 kind: native
-name: lendyr_disputes_agent
+name: Disputes Agent
 description: >
   Specialist agent for Lendyr Bank that handles transaction dispute inquiries
   including reviewing disputed charges, checking dispute status, and explaining
