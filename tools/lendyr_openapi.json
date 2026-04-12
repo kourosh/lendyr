@@ -492,6 +492,107 @@
           }
         }
       }
+    },
+    "/customers/{email}/payment-history": {
+      "get": {
+        "tags": [
+          "Loans"
+        ],
+        "summary": "Get payment history",
+        "description": "Returns payment history with statistics for credit evaluation.",
+        "operationId": "get_payment_history_customers__email__payment_history_get",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Email"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/{email}/loans/{loan_id}/defer": {
+      "post": {
+        "tags": [
+          "Loans"
+        ],
+        "summary": "Request loan payment deferral",
+        "description": "Autonomous loan deferral approval based on credit score and payment history.",
+        "operationId": "request_loan_deferral_customers__email__loans__loan_id__defer_post",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Email"
+            }
+          },
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanDeferralRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -521,6 +622,20 @@
           "status"
         ],
         "title": "CardStatusUpdate"
+      },
+      "LoanDeferralRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Reason for requesting the loan deferral"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "LoanDeferralRequest"
       },
       "HTTPValidationError": {
         "properties": {
