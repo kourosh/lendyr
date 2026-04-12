@@ -1,6 +1,6 @@
 spec_version: v1
 kind: native
-name: Account Agent
+name: account_agent
 description: >
   Specialist agent for Lendyr Bank that handles all account-related customer
   inquiries including checking balances, viewing account details, reviewing

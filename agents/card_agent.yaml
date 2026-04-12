@@ -1,6 +1,6 @@
 spec_version: v1
 kind: native
-name: Card Agent
+name: card_agent
 description: >
   Specialist agent for Lendyr Bank that handles all card management tasks
   including viewing card details, freezing and unfreezing cards, and

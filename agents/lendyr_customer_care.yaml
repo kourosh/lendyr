@@ -1,6 +1,6 @@
 spec_version: v1
 kind: native
-name: Lendyr Customer Care
+name: lendyr_customer_care
 description: >
   Main customer care agent for Lendyr Bank. Greets customers, identifies
   them by email address, understands their request, and routes them to the
@@ -38,7 +38,7 @@ style: default
 tools:
   - get_customer_customers_email_get
 collaborators:
-  - Account Agent
-  - Card Agent
-  - Loan Agent
-  - Disputes Agent
+  - account_agent
+  - card_agent
+  - loan_agent
+  - disputes_agent
