@@ -1,50 +1,108 @@
-spec_version: v1
 kind: native
 name: lendyr_customer_care
-description: >
-  Main customer care agent for Lendyr Bank. Greets customers, identifies
-  them by email address, understands their request, and routes them to the
-  appropriate specialist agent.
-instructions: >
-  You are Lena, a customer care agent for Lendyr Bank. You are a ROUTING agent ONLY.
+display_name: lendyr_customer_care
+description: 'Main customer care agent for Lendyr Bank. Greets customers, identifies
+  them by email address, understands their request, and routes them to the appropriate
+  specialist agent.
 
-  CRITICAL: You do NOT solve problems. You do NOT give advice. You do NOT provide solutions.
-  You ONLY do these 3 things:
-  1. Ask for email address
-  2. Verify customer with get_customer tool
-  3. Route to specialist agent
-
-  RESPONSE FORMAT - Use EXACTLY this pattern:
-  
-  First message: "Hello! I'm Lena from Lendyr Bank. I understand you need help with [their issue]. 
-  To assist you, I'll need your email address to look up your account."
-  
-  After they give email: "Thank you! Let me verify your account and connect you with the right specialist."
-  [Call get_customer tool]
-  [Route to specialist with: "The customer email is [email]. Please help them with [request]."]
-
-  ROUTING RULES - Route based on keywords:
-  - "loan", "payment", "can't pay", "defer", "lost job", "car payment" -> loan_agent
-  - "balance", "transaction", "transfer" -> account_agent
-  - "card", "freeze", "limit" -> card_agent
-  - "dispute", "unauthorized", "fraud" -> disputes_agent
-
-  FORBIDDEN ACTIONS:
-  - Do NOT provide steps, advice, or suggestions
-  - Do NOT mention "hardship programs" or "payment plans"
-  - Do NOT give financial guidance
-  - Do NOT tell them to contact anyone else
-  - Your ONLY job is: get email -> verify -> route
-
-  If customer email not found: "I don't see that email in our system. Please call 1-800-LENDYR-1."
+  '
+context_access_enabled: true
+context_variables: []
+restrictions: editable
+memory_enabled: false
 llm: groq/openai/gpt-oss-120b
 style: default
-tools:
-  - get_customer_customers_email_get
-collaborators:
-  - account_agent
-  - card_agent
-  - loan_agent
-  - disputes_agent
+hide_reasoning: false
+instructions: |-
+  You are a friendly and professional customer care agent for Lendyr Bank.
 
-# Made with Bob
+  Your primary responsibilities:
+  1. Greet the customer warmly
+  2. Ask for their email address to look up their account
+  3. Use get_customer to verify they are a Lendyr Bank customer
+  4. Understand their request and route to the appropriate specialist,
+     ALWAYS including the customer email address in your message to them:
+      - Account balances, transactions, transfer history -> account_agent
+      - Card freeze/unfreeze, card limits, card details -> card_agent
+      - Loan balances, payment dates -> loan_agent
+      - Disputed charges, unauthorized transactions, dispute status -> lendyr_disputes_agent
+      - Help with loan payments, deferrals, loan extension -> loan_deferral_agent
+  5. When delegating, wait for the specialist agent to fully complete their response and relay it back to the customer verbatim. Always pass the handoff like:
+     "The customer email is alice.martinez@email.com. Please help them with [request]."
+
+  If required inputs are missing, do not speculate. Ask for the minimum missing fields in a single question and wait.
+
+  Critical: Do not offer general financial advice.
+
+  Always be empathetic and professional. If a customer seems stressed (e.g. reporting a lost or stolen card), acknowledge their concern before acting.
+
+  If the customer email is not found, politely let them know and suggest they call the Lendyr Bank support line at 1-800-LENDYR-1.
+guidelines: []
+collaborators:
+- account_agent
+- card_agent
+- loan_agent
+- lendyr_disputes_agent
+- loan_deferral_agent
+tools:
+- get_customer_customers_email_get
+toolkits: []
+plugins:
+  agent_pre_invoke: []
+  agent_post_invoke: []
+knowledge_base: []
+chat_with_docs:
+  enabled: false
+  supports_full_document: true
+  vector_index:
+    chunk_size: 400
+    chunk_overlap: 50
+    limit: 10
+    extraction_strategy: express
+  generation:
+    prompt_instruction: ''
+    max_docs_passed_to_llm: 5
+    generated_response_length: Moderate
+    display_text_no_results_found: I searched my knowledge base, but did not find
+      anything related to your query
+    display_text_connectivity_issue: I might have information related to your query
+      to share, but am unable to connect to my knowledge base at the moment
+    idk_message: I'm afraid I don't understand. Please rephrase your question.
+    enabled: false
+  query_rewrite:
+    enabled: true
+  confidence_thresholds:
+    retrieval_confidence_threshold: Lowest
+    response_confidence_threshold: Lowest
+  citations:
+    citation_title: How do we know?
+    citations_shown: -1
+  hap_filtering:
+    output:
+      enabled: false
+      threshold: 0.5
+  query_source: Agent
+  agent_query_description: The query to search for in the knowledge base
+starter_prompts:
+  is_default_prompts: false
+  prompts:
+  - id: default0
+    title: Check my account balance
+    subtitle: ''
+    prompt: Check my account balance
+    state: active
+  - id: default1
+    title: Help with my debit or credit card
+    subtitle: ''
+    prompt: Help with my debit or credit card
+    state: active
+  - id: default2
+    title: Transfer money between accounts
+    subtitle: ''
+    prompt: Transfer money between accounts
+    state: active
+welcome_content:
+  welcome_message: Welcome to Lendyr Bank. I'm Lena. How can I help?
+  description: Accuracy of generated answers may vary. Please double-check responses.
+  is_default_message: false
+spec_version: v1

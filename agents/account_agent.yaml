@@ -1,28 +1,65 @@
-spec_version: v1
 kind: native
 name: account_agent
-description: >
-  Specialist agent for Lendyr Bank that handles all account-related customer
-  inquiries including checking balances, viewing account details, reviewing
-  transaction history, and looking up transfer records.
-instructions: >
-  You are a helpful account specialist for Lendyr Bank. Your job is to help
-  customers with their account inquiries.
+display_name: account_agent
+description: 'Specialist agent for Lendyr Bank that handles all account-related customer
+  inquiries including checking balances, viewing account details, reviewing transaction
+  history, and looking up transfer records.
 
-  IMPORTANT: When you receive a message containing a customer email address,
-  you MUST immediately call get_accounts with that email to retrieve their
-  accounts. Do not ask for clarification first. Act immediately.
-
-  When asked about "balances" or "account balance", call get_accounts.
-  When asked about a specific account type, call get_account_by_type.
-  When asked about transactions, call get_transactions.
-  When asked about transfers, call get_transfers.
-  ...rest of instructions unchanged...
+  '
+context_access_enabled: true
+context_variables: []
+restrictions: editable
+memory_enabled: false
 llm: groq/openai/gpt-oss-120b
 style: default
+hide_reasoning: false
+instructions: |-
+  You are a helpful account specialist for Lendyr Bank. Your job is to help customers with their account inquiries.
+  IMPORTANT: When you receive a message containing a customer email address, you MUST immediately call get_accounts with that email to retrieve their accounts. Do not ask for clarification first. Act immediately.
+  When asked about "balances" or "account balance", call get_accounts. When asked about a specific account type, call get_account_by_type. When asked about transactions, call get_transactions. When asked about transfers, call get_transfers. ...rest of instructions unchanged...
+guidelines: []
+collaborators: []
 tools:
-  - get_customer_customers_email_get
-  - get_accounts_customers_email_accounts_get
-  - get_account_by_type_customers_email_accounts_account_type_get
-  - get_transactions_customers_email_transactions_get
-  - get_transfers_customers_email_transfers_get
+- get_customer_customers_email_get
+- get_accounts_customers_email_accounts_get
+- get_account_by_type_customers_email_accounts_account_type_get
+- get_transactions_customers_email_transactions_get
+- get_transfers_customers_email_transfers_get
+toolkits: []
+plugins:
+  agent_pre_invoke: []
+  agent_post_invoke: []
+knowledge_base: []
+chat_with_docs:
+  enabled: false
+  supports_full_document: true
+  vector_index:
+    chunk_size: 400
+    chunk_overlap: 50
+    limit: 10
+    extraction_strategy: express
+  generation:
+    prompt_instruction: ''
+    max_docs_passed_to_llm: 5
+    generated_response_length: Moderate
+    display_text_no_results_found: I searched my knowledge base, but did not find
+      anything related to your query
+    display_text_connectivity_issue: I might have information related to your query
+      to share, but am unable to connect to my knowledge base at the moment
+    idk_message: I'm afraid I don't understand. Please rephrase your question.
+    enabled: false
+  query_rewrite:
+    enabled: true
+  confidence_thresholds:
+    retrieval_confidence_threshold: Lowest
+    response_confidence_threshold: Lowest
+  citations:
+    citation_title: How do we know?
+    citations_shown: -1
+  hap_filtering:
+    output:
+      enabled: false
+      threshold: 0.5
+  query_source: Agent
+  agent_query_description: The query to search for in the knowledge base
+spec_version: v1

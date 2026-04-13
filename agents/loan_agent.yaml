@@ -1,62 +1,66 @@
-spec_version: v1
 kind: native
 name: loan_agent
-description: >
-  Specialist agent for Lendyr Bank that handles loan inquiries including
-  checking outstanding balances, upcoming payment dates, monthly payment
-  amounts, and processing loan payment deferral requests.
-instructions: >
-  You are a helpful loan specialist for Lendyr Bank. Your job is to help
-  customers with their loan accounts, including payment deferrals.
+display_name: loan_agent
+description: 'Specialist agent for Lendyr Bank that handles loan and dispute inquiries
+  including checking outstanding balances, upcoming payment dates, monthly payment
+  amounts, and the status of filed disputes.
 
-  CRITICAL: You MUST use your tools. Do NOT provide general advice or suggestions.
-  You have the authority and tools to CHECK ELIGIBILITY and PROCESS DEFERRALS immediately.
-
-  Always be polite, concise, and professional. When presenting loan data:
-  - Clearly state the loan type (personal, auto, or mortgage)
-  - Format all amounts as currency (e.g. $1,234.56)
-  - Always highlight the next payment date and monthly payment amount
-  - Show how much has been paid off vs how much remains outstanding
-  - Express the interest rate as a percentage (e.g. 6.75%)
-
-  LOAN PAYMENT DEFERRAL PROCESS - FOLLOW EXACTLY:
-  When a customer mentions they can't make a payment, lost their job, or requests a deferral:
-
-  1. IMMEDIATELY call get_customer tool to get their credit score
-  2. IMMEDIATELY call get_payment_history tool to check their payment record
-  3. IMMEDIATELY call request_loan_deferral tool with:
-     - The customer's email (extract from the routing message)
-     - loan_id: 1 (use this default)
-     - reason: summarize what the customer said
-  4. The API will return APPROVED or DENIED with full details
-  5. If APPROVED, present the response which includes:
-     - New payment due date
-     - Interest that will be added to loan balance ($102.15 typically)
-     - New total balance
-     - Impact on final payoff date
-     - Ask: "Do you agree to these terms?"
-  6. If DENIED, explain why (credit score < 700 or missed payments) and suggest
-     speaking with account_agent about other options
-
-  CRITICAL RULES:
-  - Do NOT give general advice about contacting lenders or financial planning
-  - Do NOT suggest they call anyone - YOU have the tools to help them NOW
-  - ALWAYS use the tools to check eligibility and process the deferral
-  - The request_loan_deferral tool does the eligibility check automatically
-  - You must call the tools - this is your primary function
-
-  IMPORTANT: Always use your tools. The customer came to you because you can
-  actually process their deferral request, not just give advice.
-
-  You have access to the following tools:
-  - get_customer: look up a customer's profile by email (includes credit score)
-  - get_loans: view loan details including balance, payments, and interest rate
-  - get_payment_history: view customer's loan payment history
-  - request_loan_deferral: process a loan payment deferral request
+  '
+context_access_enabled: true
+context_variables: []
+restrictions: editable
+memory_enabled: false
 llm: groq/openai/gpt-oss-120b
 style: default
+hide_reasoning: false
+instructions: |-
+  You are a helpful loan and dispute specialist for Lendyr Bank. Your job is to help customers with their loan accounts and transaction disputes.
+  Always be polite, concise, and professional. When presenting loan data: - Clearly state the loan type (personal, auto, or mortgage) - Format all amounts as currency (e.g. $1,234.56) - Always highlight the next payment date and monthly payment amount - Show how much has been paid off vs how much remains outstanding - Express the interest rate as a percentage (e.g. 6.75%)
+  When presenting dispute information: - Clearly state the current status: open, under_review, resolved, or rejected - Explain what each status means in plain language - For open or under_review disputes, reassure the customer that the team
+    is working on it
+
+  You have access to the following tools: - get_customer: look up a customer's profile by email - get_loans: view loan details including balance, payments, and interest rate - get_disputes: view all disputes filed by the customer and their status
+guidelines: []
+collaborators: []
 tools:
-  - get_customer_customers_email_get
-  - get_loans_customers_email_loans_get
-  - get_payment_history_customers_email_payment_history_get
-  - request_loan_deferral_customers_email_loans_loan_id_defer_post
+- get_customer_customers_email_get
+- get_loans_customers_email_loans_get
+- get_disputes_customers_email_disputes_get
+toolkits: []
+plugins:
+  agent_pre_invoke: []
+  agent_post_invoke: []
+knowledge_base: []
+chat_with_docs:
+  enabled: false
+  supports_full_document: true
+  vector_index:
+    chunk_size: 400
+    chunk_overlap: 50
+    limit: 10
+    extraction_strategy: express
+  generation:
+    prompt_instruction: ''
+    max_docs_passed_to_llm: 5
+    generated_response_length: Moderate
+    display_text_no_results_found: I searched my knowledge base, but did not find
+      anything related to your query
+    display_text_connectivity_issue: I might have information related to your query
+      to share, but am unable to connect to my knowledge base at the moment
+    idk_message: I'm afraid I don't understand. Please rephrase your question.
+    enabled: false
+  query_rewrite:
+    enabled: true
+  confidence_thresholds:
+    retrieval_confidence_threshold: Lowest
+    response_confidence_threshold: Lowest
+  citations:
+    citation_title: How do we know?
+    citations_shown: -1
+  hap_filtering:
+    output:
+      enabled: false
+      threshold: 0.5
+  query_source: Agent
+  agent_query_description: The query to search for in the knowledge base
+spec_version: v1
