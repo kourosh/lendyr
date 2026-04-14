@@ -45,17 +45,20 @@ def get_db_connection():
     display_name="Authenticate Customer",
     description="Validates customer ID and PIN, returns customer email for subsequent API calls if successful"
 )
-def authenticate_customer(input_data: CustomerAuthInput) -> CustomerAuthOutput:
+def authenticate_customer(customer_id: int, pin: str) -> CustomerAuthOutput:
     """
     Authenticate a customer using their ID and PIN.
     Returns customer email if successful for use in subsequent API calls.
     
     Args:
-        input_data: CustomerAuthInput with customer_id and pin
+        customer_id: The customer's ID number (e.g., 846301)
+        pin: The customer's 5-digit PIN
         
     Returns:
         CustomerAuthOutput with authentication result and customer email
     """
+    # Create input object from parameters
+    input_data = CustomerAuthInput(customer_id=customer_id, pin=pin)
     try:
         conn = get_db_connection()
         
