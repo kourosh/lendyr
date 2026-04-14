@@ -8,6 +8,7 @@ import ibm_db
 import os
 from pydantic import BaseModel, Field
 from typing import Optional
+from ibm_watsonx_orchestrate.agent_builder.tools import tool
 
 
 class CustomerAuthInput(BaseModel):
@@ -39,6 +40,11 @@ def get_db_connection():
     return ibm_db.connect(dsn, "", "")
 
 
+@tool(
+    name="authenticate_customer",
+    display_name="Authenticate Customer",
+    description="Validates customer ID and PIN, returns customer email for subsequent API calls if successful"
+)
 def authenticate_customer(input_data: CustomerAuthInput) -> CustomerAuthOutput:
     """
     Authenticate a customer using their ID and PIN.
