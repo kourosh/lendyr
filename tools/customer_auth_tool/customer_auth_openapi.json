@@ -1,0 +1,84 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Customer Authentication Tool",
+    "description": "Authenticates Lendyr Bank customers using their customer ID and PIN",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud"
+    }
+  ],
+  "paths": {
+    "/auth/validate": {
+      "post": {
+        "summary": "Authenticate customer",
+        "description": "Validates customer ID and PIN, returns customer email for subsequent API calls",
+        "operationId": "authenticate_customer",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerAuthInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerAuthOutput"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CustomerAuthInput": {
+        "type": "object",
+        "required": ["customer_id", "pin"],
+        "properties": {
+          "customer_id": {
+            "type": "integer",
+            "description": "The customer's ID number (e.g., 846301)"
+          },
+          "pin": {
+            "type": "string",
+            "description": "The customer's 5-digit PIN"
+          }
+        }
+      },
+      "CustomerAuthOutput": {
+        "type": "object",
+        "required": ["success", "message"],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether authentication was successful"
+          },
+          "customer_email": {
+            "type": "string",
+            "description": "Customer's email address for API calls (only if successful)"
+          },
+          "customer_name": {
+            "type": "string",
+            "description": "Customer's full name (only if successful)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Authentication result message"
+          }
+        }
+      }
+    }
+  }
+}
