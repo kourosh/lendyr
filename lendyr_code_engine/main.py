@@ -186,6 +186,16 @@ def clean(row: dict) -> dict:
 
 # ─── Models ──────────────────────────────────────────────────────────────────
 
+class CustomerAuthInput(BaseModel):
+    customer_id: int
+    pin: str
+
+class CustomerAuthOutput(BaseModel):
+    success: bool
+    customer_email: Optional[str] = None
+    customer_name: Optional[str] = None
+    message: str
+
 class CardStatusUpdate(BaseModel):
     status: str
 
@@ -197,6 +207,49 @@ class CardLimitUpdate(BaseModel):
 @app.get("/health", summary="Health check", tags=["System"])
 def health():
     return {"status": "ok", "service": "Lendyr Bank API"}
+
+
+@app.post("/auth/validate", tags=["Authentication"],
+    summary="Authenticate customer",
+    description="Validates customer ID and PIN, returns customer email for subsequent API calls")
+def authenticate_customer(body: CustomerAuthInput):
+    """
+    Authenticate a customer using their ID and PIN.
+    Returns customer email if successful for use in subsequent API calls.
+    """
+    try:
+        sql = '''
+        SELECT customer_id, first_name, last_name, email, pin
+        FROM "LENDYR-DEMO".CUSTOMERS
+        WHERE customer_id = ? AND pin = ?
+        '''
+        
+        results = query_db(sql, (body.customer_id, body.pin))
+        
+        if results:
+            # Authentication successful
+            row = results[0]
+            customer_name = f"{row['FIRST_NAME']} {row['LAST_NAME']}"
+            customer_email = row['EMAIL']
+            
+            return CustomerAuthOutput(
+                success=True,
+                customer_email=customer_email,
+                customer_name=customer_name,
+                message=f"Welcome, {customer_name}! Authentication successful."
+            )
+        else:
+            # Authentication failed
+            return CustomerAuthOutput(
+                success=False,
+                message="Invalid customer ID or PIN. Please try again."
+            )
+            
+    except Exception as e:
+        return CustomerAuthOutput(
+            success=False,
+            message=f"Authentication error: {str(e)}"
+        )
 
 
 @app.get("/customers/{email}", tags=["Customers"],
