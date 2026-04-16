@@ -22,7 +22,8 @@
             "schema": {
               "type": "string",
               "title": "Customer Id"
-            }
+            },
+            "x-ibm-context-mapping": "customer_id"
           }
         ],
         "responses": {

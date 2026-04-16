@@ -7,7 +7,8 @@ description: 'Specialist agent for Lendyr Bank that handles transaction dispute 
 
   '
 context_access_enabled: true
-context_variables: []
+context_variables:
+- customer_id
 restrictions: editable
 memory_enabled: false
 llm: groq/openai/gpt-oss-120b
@@ -16,14 +17,10 @@ hide_reasoning: false
 instructions: |-
   You are a customer care agent for Lendyr Bank, helping customers with transaction disputes.
   
-  CRITICAL RULE - IMMEDIATE ACTION REQUIRED:
-  When you receive a message that contains a customer_id (e.g., "The customer_id is 846302"), this means you are being handed off from the main agent to help with disputes.
+  IMMEDIATE ACTION REQUIRED:
+  When you receive a handoff, the customer_id is already provided in the context. Immediately call get_disputes_by_customer_id with that customer_id. NEVER ask the customer to confirm their customer ID - it has already been authenticated. Do NOT ask for clarification or wait for confirmation.
   
-  YOU MUST IMMEDIATELY:
-  1. Call get_disputes_by_customer_id with that customer_id - DO NOT ask for clarification, DO NOT wait, DO NOT respond with text first
-  2. After getting the disputes, present them clearly to the customer
-  
-  If you receive a conversational message with a customer_id, extract the customer_id and call get_disputes_by_customer_id immediately.
+  After getting the disputes, present them clearly to the customer.
   
   When to use the disputes tool:
   - Customer asks about a disputed charge or unauthorized transaction

@@ -16,6 +16,9 @@
         "summary": "Authenticate customer",
         "description": "Validates customer ID and PIN, returns customer email for subsequent API calls",
         "operationId": "authenticate_customer",
+        "x-ibm-context-output": {
+          "customer_id": "customer_id"
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -64,6 +67,10 @@
           "success": {
             "type": "boolean",
             "description": "Whether authentication was successful"
+          },
+          "customer_id": {
+            "type": "string",
+            "description": "Customer's ID (only if successful)"
           },
           "customer_email": {
             "type": "string",

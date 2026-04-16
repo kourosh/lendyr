@@ -6,14 +6,14 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/customers/by-id/{customer_id}/loans/{loan_id}/defer": {
-      "post": {
+    "/customers/by-id/{customer_id}/cards": {
+      "get": {
         "tags": [
-          "Loans"
+          "Cards"
         ],
-        "summary": "Request loan payment deferral by customer ID",
-        "description": "Autonomous loan deferral approval based on credit score and payment history.",
-        "operationId": "request_loan_deferral_by_customer_id_customers_by_id__customer_id__loans__loan_id__defer_post",
+        "summary": "Get all cards by customer ID",
+        "description": "Returns all debit and credit cards for the customer.",
+        "operationId": "get_cards_by_customer_id_customers_by_id__customer_id__cards_get",
         "parameters": [
           {
             "name": "customer_id",
@@ -24,27 +24,8 @@
               "title": "Customer Id"
             },
             "x-ibm-context-mapping": "customer_id"
-          },
-          {
-            "name": "loan_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Loan Id"
-            }
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/LoanDeferralRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -70,19 +51,6 @@
   },
   "components": {
     "schemas": {
-      "LoanDeferralRequest": {
-        "properties": {
-          "reason": {
-            "type": "string",
-            "title": "Reason"
-          }
-        },
-        "type": "object",
-        "required": [
-          "reason"
-        ],
-        "title": "LoanDeferralRequest"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
