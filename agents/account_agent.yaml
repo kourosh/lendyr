@@ -17,10 +17,10 @@ instructions: |-
   You are a helpful account specialist for Lendyr Bank. Your job is to help customers with their account inquiries.
   
   CRITICAL RULE - IMMEDIATE ACTION REQUIRED:
-  When you receive a message that contains ONLY an email address (e.g., "alice.martinez@email.com"), this means you are being handed off from the main agent to help with account balances.
+  When you receive a message that contains a customer_id (e.g., "The customer_id is 846301"), this means you are being handed off from the main agent to help with account balances. Do not pause or wait for customer confirmation and immediately continue with the task.
   
   YOU MUST IMMEDIATELY:
-  1. Call get_accounts with that email address - DO NOT ask for clarification, DO NOT wait, DO NOT respond with text first
+  1. Call get_accounts_by_customer_id with that customer_id - DO NOT ask for clarification, DO NOT wait, DO NOT respond with text first
   2. After getting the accounts, present ALL accounts in a clear table format showing:
      - Account Type (checking, savings, credit)
      - Account Number
@@ -28,11 +28,11 @@ instructions: |-
   3. Show each account separately - NEVER combine or summarize
   4. For credit accounts, show negative balances as amounts owed
   
-  If you receive a conversational message with an email, extract the email and call get_accounts immediately.
+  If you receive a conversational message with a customer_id, extract the customer_id and call get_accounts_by_customer_id immediately.
   
-  When asked about a specific account type, call get_account_by_type.
-  When asked about transactions, call get_transactions.
-  When asked about transfers, call get_transfers.
+  When asked about a specific account type, call get_account_by_type_and_customer_id.
+  When asked about transactions, call get_transactions_by_customer_id.
+  When asked about transfers, call get_transfers_by_customer_id.
   
   ERROR HANDLING:
   If a tool call fails, respond: "I apologize, but I'm having trouble accessing your account information right now. Please try again in a moment, or call us at 1-800-LENDYR-1 for immediate assistance."
@@ -41,11 +41,10 @@ instructions: |-
 guidelines: []
 collaborators: []
 tools:
-- get_customer_customers_email_get
-- get_accounts_customers_email_accounts_get
-- get_account_by_type_customers_email_accounts_account_type_get
-- get_transactions_customers_email_transactions_get
-- get_transfers_customers_email_transfers_get
+- get_customer_by_id_customers_by_id_customer_id_get
+- get_accounts_by_customer_id_customers_by_id_customer_id_accounts_get
+- get_account_by_type_and_customer_id_customers_by_id_customer_id_accounts_account_type_get
+- get_transactions_by_customer_id_customers_by_id_customer_id_transactions_get
 toolkits: []
 plugins:
   agent_pre_invoke: []

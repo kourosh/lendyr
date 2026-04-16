@@ -1,0 +1,347 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lendyr Bank API - Customer ID Based",
+    "description": "Customer care REST API for the Lendyr Bank watsonx Orchestrate demo using customer_id as the primary identifier.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/by-id/{customer_id}": {
+      "get": {
+        "tags": ["Customers"],
+        "summary": "Get customer profile by ID",
+        "description": "Returns full profile for a customer identified by their customer_id.",
+        "operationId": "get_customer_by_id_customers_by_id__customer_id__get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/accounts": {
+      "get": {
+        "tags": ["Accounts"],
+        "summary": "Get all accounts for a customer by ID",
+        "description": "Returns all checking, savings, credit, and loan accounts for the customer.",
+        "operationId": "get_accounts_by_customer_id_customers_by_id__customer_id__accounts_get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/accounts/{account_type}": {
+      "get": {
+        "tags": ["Accounts"],
+        "summary": "Get a specific account type by customer ID",
+        "description": "Returns a single account of the given type (checking, savings, credit, loan).",
+        "operationId": "get_account_by_type_and_customer_id_customers_by_id__customer_id__accounts__account_type__get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "account_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Account Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/transactions": {
+      "get": {
+        "tags": ["Transactions"],
+        "summary": "Get recent transactions by customer ID",
+        "description": "Returns the most recent transactions for the customer.",
+        "operationId": "get_transactions_by_customer_id_customers_by_id__customer_id__transactions_get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "account_type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Account Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/loans": {
+      "get": {
+        "tags": ["Loans"],
+        "summary": "Get loan details by customer ID",
+        "description": "Returns loan details including outstanding balance and next payment date.",
+        "operationId": "get_loans_by_customer_id_customers_by_id__customer_id__loans_get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/payment-history": {
+      "get": {
+        "tags": ["Loans"],
+        "summary": "Get payment history by customer ID",
+        "description": "Returns payment history with statistics for credit evaluation.",
+        "operationId": "get_payment_history_by_customer_id_customers_by_id__customer_id__payment_history_get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/cards": {
+      "get": {
+        "tags": ["Cards"],
+        "summary": "Get all cards by customer ID",
+        "description": "Returns all debit and credit cards for the customer.",
+        "operationId": "get_cards_by_customer_id_customers_by_id__customer_id__cards_get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/disputes": {
+      "get": {
+        "tags": ["Disputes"],
+        "summary": "Get dispute history by customer ID",
+        "description": "Returns all transaction disputes filed by the customer.",
+        "operationId": "get_disputes_by_customer_id_customers_by_id__customer_id__disputes_get",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/customers/by-id/{customer_id}/loans/{loan_id}/defer": {
+      "post": {
+        "tags": ["Loans"],
+        "summary": "Request loan payment deferral by customer ID",
+        "description": "Autonomous loan deferral approval based on credit score and payment history.",
+        "operationId": "request_loan_deferral_by_customer_id_customers_by_id__customer_id__loans__loan_id__defer_post",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            }
+          },
+          {
+            "name": "loan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Loan Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoanDeferralRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoanDeferralRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          }
+        },
+        "type": "object",
+        "required": ["reason"],
+        "title": "LoanDeferralRequest"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud"
+    }
+  ]
+}

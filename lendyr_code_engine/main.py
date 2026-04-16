@@ -192,6 +192,7 @@ class CustomerAuthInput(BaseModel):
 
 class CustomerAuthOutput(BaseModel):
     success: bool
+    customer_id: Optional[str] = None
     customer_email: Optional[str] = None
     customer_name: Optional[str] = None
     message: str
@@ -229,11 +230,13 @@ def authenticate_customer(body: CustomerAuthInput):
         if results:
             # Authentication successful
             row = results[0]
+            customer_id = str(row['CUSTOMER_ID'])
             customer_name = f"{row['FIRST_NAME']} {row['LAST_NAME']}"
             customer_email = row['EMAIL']
             
             return CustomerAuthOutput(
                 success=True,
+                customer_id=customer_id,
                 customer_email=customer_email,
                 customer_name=customer_name,
                 message=f"Welcome, {customer_name}! Authentication successful."
@@ -589,6 +592,268 @@ def request_loan_deferral(email: str, loan_id: str, body: LoanDeferralRequest):
     
     return {
         "loan_id": loan_id,
+        "customer_name": customer_name,
+        "approval_status": approval_status,
+        "approval_reason": approval_reason,
+        "deferral_details": {
+            "reason": body.reason,
+            "deferred_payment_amount": monthly_payment,
+            "interest_accrued": round(interest_on_deferred_payment, 2),
+            "new_outstanding_balance": round(new_balance, 2),
+            "original_next_payment_date": loan['next_payment_date'],
+            "new_next_payment_date": new_payment_date.strftime('%Y-%m-%d')
+        },
+        "credit_evaluation": {
+            "credit_score": credit_score,
+            "total_payments": total_payments,
+            "on_time_payments": on_time_payments,
+            "missed_payments": missed_payments,
+            "on_time_percentage": round(on_time_percentage, 2)
+        }
+    }
+
+
+# ─── Customer ID-based Routes ────────────────────────────────────────────────
+# These routes accept customer_id directly instead of email for better agent integration
+
+@app.get("/customers/by-id/{customer_id}", tags=["Customers"],
+    summary="Get customer profile by ID",
+    description="Returns full profile for a customer identified by their customer_id.")
+def get_customer_by_id(customer_id: str):
+    sql = 'SELECT * FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    results = query_db(sql, (customer_id,))
+    if results:
+        return clean(results[0])
+    raise HTTPException(status_code=404, detail="Customer not found")
+
+
+@app.get("/customers/by-id/{customer_id}/accounts", tags=["Accounts"],
+    summary="Get all accounts for a customer by ID",
+    description="Returns all checking, savings, credit, and loan accounts for the customer.")
+def get_accounts_by_customer_id(customer_id: str):
+    sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? ORDER BY account_type'
+    results = query_db(sql, (customer_id,))
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No accounts found")
+    
+    return [clean(r) for r in results]
+
+
+@app.get("/customers/by-id/{customer_id}/accounts/{account_type}", tags=["Accounts"],
+    summary="Get a specific account type by customer ID",
+    description="Returns a single account of the given type (checking, savings, credit, loan).")
+def get_account_by_type_and_customer_id(customer_id: str, account_type: str):
+    sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+    results = query_db(sql, (customer_id, account_type))
+    
+    if results:
+        return clean(results[0])
+    raise HTTPException(status_code=404, detail=f"No {account_type} account found")
+
+
+@app.get("/customers/by-id/{customer_id}/transactions", tags=["Transactions"],
+    summary="Get recent transactions by customer ID",
+    description="Returns the most recent transactions for the customer.")
+def get_transactions_by_customer_id(
+    customer_id: str,
+    limit: int = Query(default=10, ge=1, le=100),
+    account_type: Optional[str] = None
+):
+    if account_type:
+        sql = '''
+            SELECT t.* FROM "LENDYR-DEMO".TRANSACTIONS t
+            JOIN "LENDYR-DEMO".ACCOUNTS a ON t.account_id = a.account_id
+            WHERE a.customer_id = ? AND a.account_type = ?
+            ORDER BY t.created_at DESC
+            LIMIT ?
+        '''
+        results = query_db(sql, (customer_id, account_type, limit))
+    else:
+        sql = '''
+            SELECT t.* FROM "LENDYR-DEMO".TRANSACTIONS t
+            JOIN "LENDYR-DEMO".ACCOUNTS a ON t.account_id = a.account_id
+            WHERE a.customer_id = ?
+            ORDER BY t.created_at DESC
+            LIMIT ?
+        '''
+        results = query_db(sql, (customer_id, limit))
+    
+    return [clean(r) for r in results]
+
+
+@app.get("/customers/by-id/{customer_id}/cards", tags=["Cards"],
+    summary="Get all cards by customer ID",
+    description="Returns all debit and credit cards for the customer.")
+def get_cards_by_customer_id(customer_id: str):
+    sql = '''
+        SELECT c.* FROM "LENDYR-DEMO".CARDS c
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON c.account_id = a.account_id
+        WHERE a.customer_id = ?
+    '''
+    results = query_db(sql, (customer_id,))
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No cards found")
+    
+    return [clean(r) for r in results]
+
+
+@app.get("/customers/by-id/{customer_id}/loans", tags=["Loans"],
+    summary="Get loan details by customer ID",
+    description="Returns loan details including outstanding balance and next payment date.")
+def get_loans_by_customer_id(customer_id: str):
+    sql = '''
+        SELECT l.*, a.interest_rate
+        FROM "LENDYR-DEMO".LOANS l
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON l.account_id = a.account_id
+        WHERE a.customer_id = ?
+    '''
+    results = query_db(sql, (customer_id,))
+    
+    if not results:
+        raise HTTPException(status_code=404, detail="No loans found")
+    
+    return [clean(r) for r in results]
+
+
+@app.get("/customers/by-id/{customer_id}/disputes", tags=["Disputes"],
+    summary="Get dispute history by customer ID",
+    description="Returns all transaction disputes filed by the customer.")
+def get_disputes_by_customer_id(customer_id: str):
+    sql = '''
+        SELECT d.*, t.merchant_name, t.amount, t.created_at as transaction_date
+        FROM "LENDYR-DEMO".DISPUTES d
+        JOIN "LENDYR-DEMO".TRANSACTIONS t ON d.transaction_id = t.transaction_id
+        WHERE d.customer_id = ?
+        ORDER BY d.filed_at DESC
+    '''
+    results = query_db(sql, (customer_id,))
+    
+    return [clean(r) for r in results]
+
+
+@app.get("/customers/by-id/{customer_id}/payment-history", tags=["Loans"],
+    summary="Get payment history by customer ID",
+    description="Returns payment history with statistics for credit evaluation.")
+def get_payment_history_by_customer_id(customer_id: str):
+    # Get customer credit score
+    customer_sql = 'SELECT credit_score FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (customer_id,))
+    
+    if not customer_results:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    credit_score = customer_results[0]['CREDIT_SCORE']
+    
+    # Get payment history
+    sql = '''
+        SELECT payment_id, payment_date, payment_amount, was_late, days_late, auto_pay_used, note
+        FROM "LENDYR-DEMO".PAYMENT_HISTORY
+        WHERE customer_id = ?
+        ORDER BY payment_date DESC
+    '''
+    results = query_db(sql, (customer_id,))
+    
+    # Calculate statistics
+    total_payments = len(results)
+    on_time_payments = sum(1 for r in results if r['WAS_LATE'] == 0)
+    missed_payments = sum(1 for r in results if r['WAS_LATE'] == 1)
+    on_time_percentage = (on_time_payments / total_payments * 100) if total_payments > 0 else 0
+    
+    return {
+        "customer_id": customer_id,
+        "credit_score": credit_score,
+        "payment_history": [clean(r) for r in results],
+        "statistics": {
+            "total_payments": total_payments,
+            "on_time_payments": on_time_payments,
+            "missed_payments": missed_payments,
+            "on_time_percentage": round(on_time_percentage, 2)
+        }
+    }
+
+
+@app.post("/customers/by-id/{customer_id}/loans/{loan_id}/defer", tags=["Loans"],
+    summary="Request loan payment deferral by customer ID",
+    description="Autonomous loan deferral approval based on credit score and payment history.")
+def request_loan_deferral_by_customer_id(customer_id: str, loan_id: str, body: LoanDeferralRequest):
+    # Get customer credit score
+    customer_sql = 'SELECT credit_score, first_name, last_name FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (customer_id,))
+    
+    if not customer_results:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    credit_score = customer_results[0]['CREDIT_SCORE']
+    customer_name = f"{customer_results[0]['FIRST_NAME']} {customer_results[0]['LAST_NAME']}"
+    
+    # Get payment history statistics
+    payment_sql = '''
+        SELECT COUNT(*) as total_payments,
+               SUM(CASE WHEN was_late = 0 THEN 1 ELSE 0 END) as on_time_payments,
+               SUM(CASE WHEN was_late = 1 THEN 1 ELSE 0 END) as missed_payments
+        FROM "LENDYR-DEMO".PAYMENT_HISTORY
+        WHERE customer_id = ?
+    '''
+    payment_results = query_db(payment_sql, (customer_id,))
+    
+    total_payments = payment_results[0]['TOTAL_PAYMENTS'] if payment_results else 0
+    on_time_payments = payment_results[0]['ON_TIME_PAYMENTS'] if payment_results else 0
+    missed_payments = payment_results[0]['MISSED_PAYMENTS'] if payment_results else 0
+    on_time_percentage = (on_time_payments / total_payments * 100) if total_payments > 0 else 0
+    
+    # Get loan details
+    loan_sql = '''
+        SELECT l.*, a.interest_rate
+        FROM "LENDYR-DEMO".LOANS l
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON l.account_id = a.account_id
+        WHERE l.loan_id = ? AND a.customer_id = ?
+    '''
+    loan_results = query_db(loan_sql, (loan_id, customer_id))
+    
+    if not loan_results:
+        raise HTTPException(status_code=404, detail="Loan not found")
+    
+    loan = clean(loan_results[0])
+    
+    # Autonomous decision logic
+    # Approve if: credit_score >= 700 AND missed_payments == 0
+    if credit_score >= 700 and missed_payments == 0:
+        approval_status = "approved"
+        approval_reason = f"Approved based on excellent credit score ({credit_score}) and perfect payment history ({on_time_payments}/{total_payments} on-time payments)"
+    else:
+        approval_status = "denied"
+        reasons = []
+        if credit_score < 700:
+            reasons.append(f"credit score below threshold ({credit_score} < 700)")
+        if missed_payments > 0:
+            reasons.append(f"{missed_payments} missed payment(s)")
+        approval_reason = f"Denied due to: {', '.join(reasons)}"
+    
+    # Calculate deferral impact (if approved)
+    monthly_payment = float(loan['monthly_payment'])
+    outstanding_balance = float(loan['outstanding_balance'])
+    interest_rate = float(loan['interest_rate'])
+    
+    # Calculate one month's interest on the deferred payment
+    monthly_interest_rate = interest_rate / 12 / 100
+    interest_on_deferred_payment = monthly_payment * monthly_interest_rate
+    new_balance = outstanding_balance + interest_on_deferred_payment
+    
+    # Extend payoff date by 1 month
+    from datetime import datetime, timedelta, date
+    next_payment_date = loan['next_payment_date']
+    # Convert to datetime if it's a date object
+    if isinstance(next_payment_date, date) and not isinstance(next_payment_date, datetime):
+        next_payment_date = datetime.combine(next_payment_date, datetime.min.time())
+    elif isinstance(next_payment_date, str):
+        next_payment_date = datetime.strptime(next_payment_date, '%Y-%m-%d')
+    new_payment_date = next_payment_date + timedelta(days=30)
+    
+    return {
+        "loan_id": loan_id,
+        "customer_id": customer_id,
         "customer_name": customer_name,
         "approval_status": approval_status,
         "approval_reason": approval_reason,

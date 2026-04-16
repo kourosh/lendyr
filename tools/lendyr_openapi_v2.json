@@ -26,6 +26,46 @@
         "description": "Health check"
       }
     },
+    "/auth/validate": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Authenticate customer",
+        "description": "Validates customer ID and PIN, returns customer email for subsequent API calls",
+        "operationId": "authenticate_customer_auth_validate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerAuthInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/customers/{email}": {
       "get": {
         "tags": [
@@ -622,6 +662,24 @@
           "status"
         ],
         "title": "CardStatusUpdate"
+      },
+      "CustomerAuthInput": {
+        "properties": {
+          "customer_id": {
+            "type": "integer",
+            "title": "Customer Id"
+          },
+          "pin": {
+            "type": "string",
+            "title": "Pin"
+          }
+        },
+        "type": "object",
+        "required": [
+          "customer_id",
+          "pin"
+        ],
+        "title": "CustomerAuthInput"
       },
       "HTTPValidationError": {
         "properties": {
