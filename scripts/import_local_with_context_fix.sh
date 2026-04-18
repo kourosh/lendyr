@@ -45,16 +45,17 @@ echo -e "${YELLOW}Step 3: Importing Customer ID Tools (with context input mappin
 
 # List of all customer ID tools
 TOOLS=(
-    "get_customer_by_id_customers_by_id_customer_id_get"
-    "get_accounts_by_customer_id_customers_by_id_customer_id_accounts_get"
-    "get_account_by_type_and_customer_id_customers_by_id_customer_id_accounts_account_type_get"
-    "get_loans_by_customer_id_customers_by_id_customer_id_loans_get"
-    "get_payment_history_by_customer_id_customers_by_id_customer_id_payment_history_get"
-    "get_cards_by_customer_id_customers_by_id_customer_id_cards_get"
-    "get_disputes_by_customer_id_customers_by_id_customer_id_disputes_get"
-    "get_transactions_by_customer_id_customers_by_id_customer_id_transactions_get"
-    "get_transfers_by_customer_id_customers_by_id_customer_id_transfers_get"
-    "request_loan_deferral_by_customer_id_customers_by_id_customer_id_loans_loan_id_defer_post"
+    "get_customer_by_id"
+    "get_accounts_by_customer_id"
+    "get_account_by_type_and_customer_id"
+    "get_loans_by_customer_id"
+    "get_payment_history_by_customer_id"
+    "get_cards_by_customer_id"
+    "get_disputes_by_customer_id"
+    "get_transactions_by_customer_id"
+    "get_transfers_by_customer_id"
+    "request_loan_deferral_by_customer_id"
+    "transfer_money_by_customer_id"
 )
 
 for tool in "${TOOLS[@]}"; do
@@ -78,6 +79,7 @@ AGENTS=(
     "loan_agent"
     "loan_deferral_agent"
     "lendyr_disputes_agent"
+    "transfer_agent"
     "lendyr_customer_care"
 )
 

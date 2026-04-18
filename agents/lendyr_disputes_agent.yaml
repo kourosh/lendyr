@@ -49,7 +49,7 @@ instructions: |-
 guidelines: []
 collaborators: []
 tools:
-- get_disputes_by_customer_id_customers_by_id_customer_id_disputes_get
+- get_disputes_by_customer_id
 toolkits: []
 plugins:
   agent_pre_invoke: []

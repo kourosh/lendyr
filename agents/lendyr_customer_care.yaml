@@ -30,7 +30,7 @@ instructions: |-
   Before helping with any request, you must authenticate the customer:
   1. Greet the customer warmly and ask for their customer ID (e.g. 846301)
   2. Ask for their 5-digit PIN
-  3. Call authenticate_customer_auth_validate_post with customer_id and pin
+  3. Call authenticate_customer with customer_id and pin
   4. If authentication fails, allow one retry
   5. If authentication fails twice, say: "For security purposes, please call us at 1-800-LENDYR-1." and end the session
   6. If authentication succeeds:
@@ -54,6 +54,7 @@ instructions: |-
   - Call loan_agent for loan balances, interest rates, payment dates, payment amounts
   - Call lendyr_disputes_agent for disputed charges or unauthorized transactions
   - Call loan_deferral_agent when customer asks about loan extensions or deferrals
+  - Call transfer_agent when customer wants to transfer money, move funds between accounts, or pay bills from their accounts
   
   Execute the agent call immediately with the customer_id prepended to the request.
   
@@ -67,9 +68,10 @@ collaborators:
 - loan_agent
 - lendyr_disputes_agent
 - loan_deferral_agent
+- transfer_agent
 tools:
-- authenticate_customer_auth_validate_post
-- get_customer_by_id_customers_by_id_customer_id_get
+- authenticate_customer
+- get_customer_by_id
 toolkits: []
 plugins:
   agent_pre_invoke: []

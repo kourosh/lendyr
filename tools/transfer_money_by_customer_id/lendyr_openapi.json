@@ -1,0 +1,159 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Lendyr Bank API - Money Transfer",
+    "description": "Transfer money between customer accounts with validation and balance checking",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud",
+      "description": "Lendyr Bank API Server"
+    }
+  ],
+  "paths": {
+    "/customers/by-id/{customer_id}/transfer": {
+      "post": {
+        "tags": ["Transfers"],
+        "summary": "Transfer money between customer accounts",
+        "description": "Transfer money between a customer's own accounts. Validates sufficient funds before transfer. Handles regular transfers (checking/savings) and bill payments (to credit/loan accounts). Returns detailed transfer confirmation or insufficient funds error with available balance.",
+        "operationId": "transfer_money_by_customer_id",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer ID"
+            },
+            "description": "The unique identifier of the customer",
+            "x-ibm-context-mapping": "customer_id"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["from_account_type", "to_account_type", "amount"],
+                "properties": {
+                  "from_account_type": {
+                    "type": "string",
+                    "enum": ["checking", "savings"],
+                    "description": "The account type to transfer money FROM (source account)"
+                  },
+                  "to_account_type": {
+                    "type": "string",
+                    "enum": ["checking", "savings", "credit", "loan"],
+                    "description": "The account type to transfer money TO (destination account). Use 'credit' or 'loan' for bill payments."
+                  },
+                  "amount": {
+                    "type": "number",
+                    "minimum": 0.01,
+                    "description": "The amount of money to transfer in dollars"
+                  },
+                  "description": {
+                    "type": "string",
+                    "default": "Account transfer",
+                    "description": "Optional description of the transfer"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transfer successful or insufficient funds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "example": true
+                        },
+                        "transfer_type": {
+                          "type": "string",
+                          "enum": ["transfer", "bill_payment"]
+                        },
+                        "customer_name": {
+                          "type": "string"
+                        },
+                        "transfer_details": {
+                          "type": "object",
+                          "properties": {
+                            "from_account": {
+                              "type": "object",
+                              "properties": {
+                                "type": {"type": "string"},
+                                "account_number": {"type": "string"},
+                                "previous_balance": {"type": "number"},
+                                "new_balance": {"type": "number"}
+                              }
+                            },
+                            "to_account": {
+                              "type": "object",
+                              "properties": {
+                                "type": {"type": "string"},
+                                "account_number": {"type": "string"},
+                                "previous_balance": {"type": "number"},
+                                "new_balance": {"type": "number"}
+                              }
+                            },
+                            "amount": {"type": "number"},
+                            "description": {"type": "string"},
+                            "timestamp": {"type": "string"}
+                          }
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "success": {
+                          "type": "boolean",
+                          "example": false
+                        },
+                        "error": {
+                          "type": "string",
+                          "example": "insufficient_funds"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "available_balance": {
+                          "type": "number"
+                        },
+                        "requested_amount": {
+                          "type": "number"
+                        },
+                        "suggestion": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid amount or same account transfer"
+          },
+          "404": {
+            "description": "Customer or account not found"
+          }
+        }
+      }
+    }
+  }
+}

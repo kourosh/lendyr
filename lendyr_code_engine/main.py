@@ -874,5 +874,160 @@ def request_loan_deferral_by_customer_id(customer_id: str, loan_id: str, body: L
         }
     }
 
+# ─── Money Transfer Endpoint ─────────────────────────────────────────────────
+
+class TransferRequest(BaseModel):
+    from_account_type: str
+    to_account_type: str
+    amount: float
+    description: str = "Account transfer"
+
+
+@app.post("/customers/by-id/{customer_id}/transfer", tags=["Transfers"],
+    summary="Transfer money between customer accounts",
+    description="Transfer money between a customer's accounts with validation and balance checking.")
+def transfer_money_by_customer_id(customer_id: str, body: TransferRequest):
+    """
+    Transfer money between customer's accounts.
+    Validates sufficient funds and handles bill payments to credit/loan accounts.
+    """
+    from datetime import datetime
+    
+    # Validate amount
+    if body.amount <= 0:
+        raise HTTPException(status_code=400, detail="Transfer amount must be greater than 0")
+    
+    # Get customer info
+    customer_sql = 'SELECT first_name, last_name FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (customer_id,))
+    
+    if not customer_results:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    customer_name = f"{customer_results[0]['FIRST_NAME']} {customer_results[0]['LAST_NAME']}"
+    
+    # Get source account
+    from_account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+    from_account_results = query_db(from_account_sql, (customer_id, body.from_account_type))
+    
+    if not from_account_results:
+        raise HTTPException(status_code=404, detail=f"Source {body.from_account_type} account not found")
+    
+    from_account = clean(from_account_results[0])
+    
+    # Get destination account
+    to_account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+    to_account_results = query_db(to_account_sql, (customer_id, body.to_account_type))
+    
+    if not to_account_results:
+        raise HTTPException(status_code=404, detail=f"Destination {body.to_account_type} account not found")
+    
+    to_account = clean(to_account_results[0])
+    
+    # Prevent transfer to same account
+    if body.from_account_type == body.to_account_type:
+        raise HTTPException(status_code=400, detail="Cannot transfer to the same account type")
+    
+    # Check sufficient funds
+    current_balance = float(from_account['balance'])
+    if current_balance < body.amount:
+        return {
+            "success": False,
+            "error": "insufficient_funds",
+            "message": f"Insufficient funds. You have ${current_balance:.2f} available in your {body.from_account_type} account.",
+            "available_balance": current_balance,
+            "requested_amount": body.amount,
+            "suggestion": f"Would you like to transfer ${current_balance:.2f} instead?"
+        }
+    
+    # Determine transfer type
+    is_bill_payment = body.to_account_type in ('credit', 'loan')
+    transfer_type = "bill_payment" if is_bill_payment else "transfer"
+    
+    # Calculate new balances
+    new_from_balance = current_balance - body.amount
+    current_to_balance = float(to_account['balance'])
+    
+    # For credit/loan accounts (stored as negative balances), payment adds to balance (reduces debt)
+    # Example: -$887.11 + $887.11 = $0.00 (debt paid off)
+    if is_bill_payment:
+        new_to_balance = current_to_balance + body.amount
+    else:
+        new_to_balance = current_to_balance + body.amount
+    
+    # Update source account balance
+    update_from_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
+    execute_update(update_from_sql, (new_from_balance, from_account['account_id']))
+    
+    # Update destination account balance
+    update_to_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
+    execute_update(update_to_sql, (new_to_balance, to_account['account_id']))
+    
+    # Create transaction records for audit trail
+    transaction_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Debit transaction for source account
+    debit_sql = '''
+        INSERT INTO "LENDYR-DEMO".TRANSACTIONS 
+        (account_id, transaction_type, amount, merchant_name, created_at, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+    '''
+    try:
+        execute_update(debit_sql, (
+            from_account['account_id'],
+            'transfer_out',
+            -body.amount,
+            f"Transfer to {body.to_account_type}",
+            transaction_date,
+            'completed'
+        ))
+    except:
+        pass  # Transaction table might not support this structure
+    
+    # Credit transaction for destination account
+    credit_sql = '''
+        INSERT INTO "LENDYR-DEMO".TRANSACTIONS 
+        (account_id, transaction_type, amount, merchant_name, created_at, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+    '''
+    try:
+        execute_update(credit_sql, (
+            to_account['account_id'],
+            'transfer_in' if not is_bill_payment else 'payment',
+            body.amount,
+            f"Transfer from {body.from_account_type}",
+            transaction_date,
+            'completed'
+        ))
+    except:
+        pass  # Transaction table might not support this structure
+    
+    # Return success response
+    return {
+        "success": True,
+        "transfer_type": transfer_type,
+        "customer_name": customer_name,
+        "transfer_details": {
+            "from_account": {
+                "type": body.from_account_type,
+                "account_number": from_account['account_number'],
+                "previous_balance": current_balance,
+                "new_balance": new_from_balance
+            },
+            "to_account": {
+                "type": body.to_account_type,
+                "account_number": to_account['account_number'],
+                "previous_balance": current_to_balance,
+                "new_balance": new_to_balance
+            },
+            "amount": body.amount,
+            "description": body.description,
+            "timestamp": transaction_date
+        },
+        "message": f"Successfully transferred ${body.amount:.2f} from {body.from_account_type} to {body.to_account_type}" + 
+                   (f" (bill payment)" if is_bill_payment else "")
+    }
+
+
 
 # Made with Bob

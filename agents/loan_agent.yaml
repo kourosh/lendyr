@@ -53,9 +53,9 @@ instructions: |-
 guidelines: []
 collaborators: []
 tools:
-- get_customer_by_id_customers_by_id_customer_id_get
-- get_loans_by_customer_id_customers_by_id_customer_id_loans_get
-- get_disputes_by_customer_id_customers_by_id_customer_id_disputes_get
+- get_customer_by_id
+- get_loans_by_customer_id
+- get_disputes_by_customer_id
 toolkits: []
 plugins:
   agent_pre_invoke: []

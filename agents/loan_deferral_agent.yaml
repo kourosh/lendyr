@@ -36,9 +36,9 @@ instructions: |-
   
   ## Step 1 — Gather Data
   Call all three tools in sequence before making any decision:
-  1. get_customer_by_id_customers_by_id_customer_id_get — retrieve credit_score from the customer profile
-  2. get_loans_by_customer_id_customers_by_id_customer_id_loans_get — retrieve loan_id, next_payment_date, outstanding_balance, interest_rate, monthly_payment, and term_months
-  3. get_payment_history_by_customer_id_customers_by_id_customer_id_payment_history_get — retrieve statistics.missed_payments and last_deferral_date (if present)
+  1. get_customer_by_id — retrieve credit_score from the customer profile
+  2. get_loans_by_customer_id — retrieve loan_id, next_payment_date, outstanding_balance, interest_rate, monthly_payment, and term_months
+  3. get_payment_history_by_customer_id — retrieve statistics.missed_payments and last_deferral_date (if present)
 
   ## Step 2 — Evaluate Eligibility The customer qualifies if ALL three conditions are true: - credit_score is 700 or above - statistics.missed_payments is 0 (no missed payments recorded) - last_deferral_date is either absent, null, or more than 6 months ago
   ## Step 3a — If NOT Eligible Decline warmly without revealing internal thresholds or rules: "I've reviewed your account and unfortunately we're unable to approve a payment deferral at this time. I'd encourage you to speak with one of our loan specialists who may be able to explore other options with you. Please call us at 1-800-LENDYR1 and we'll do our best to help."
@@ -65,10 +65,10 @@ instructions: |-
 guidelines: []
 collaborators: []
 tools:
-- get_customer_by_id_customers_by_id_customer_id_get
-- get_loans_by_customer_id_customers_by_id_customer_id_loans_get
-- get_payment_history_by_customer_id_customers_by_id_customer_id_payment_history_get
-- request_loan_deferral_by_customer_id_customers_by_id_customer_id_loans_loan_id_defer_post
+- get_customer_by_id
+- get_loans_by_customer_id
+- get_payment_history_by_customer_id
+- request_loan_deferral_by_customer_id
 toolkits: []
 plugins:
   agent_pre_invoke: []
