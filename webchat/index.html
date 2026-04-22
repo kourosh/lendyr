@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lendyr Bank</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', Arial, sans-serif;
+      background: #f4f4f4;
+      color: #161616;
+    }
+
+    header {
+      background: #0f62fe;
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    header span {
+      font-size: 13px;
+      opacity: 0.75;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, #0043ce 0%, #0f62fe 60%, #4589ff 100%);
+      color: white;
+      padding: 64px 32px;
+      text-align: center;
+    }
+
+    .hero h2 {
+      font-size: 36px;
+      font-weight: 300;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      font-size: 16px;
+      opacity: 0.85;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .cards {
+      display: flex;
+      gap: 16px;
+      padding: 32px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      background: white;
+      border-radius: 4px;
+      padding: 24px;
+      width: 220px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    .card h3 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #0f62fe;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: #525252;
+      line-height: 1.5;
+    }
+
+    /* Leaflet overrides to keep the map contained in the bubble */
+    .branch-map-container .leaflet-container {
+      height: 100%;
+      width: 100%;
+      font-family: inherit;
+    }
+
+    /* Branch map rendered inside the chat bubble */
+    .branch-map-card {
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+      border: 1px solid #e0e0e0;
+    }
+
+    .branch-map-header {
+      background: #0f62fe;
+      color: white;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .branch-map-container {
+      width: 100%;
+      height: 280px;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <svg width="24" height="24" viewBox="0 0 32 32" fill="white">
+      <path d="M16 2L2 10v2h28v-2L16 2zm0 2.5L26.5 10h-21L16 4.5zM4 14v12H2v2h28v-2h-2V14h-2v12h-4V14h-2v12h-4V14h-2v12H8V14H4z"/>
+    </svg>
+    <h1>Lendyr Bank</h1>
+    <span>Member FDIC</span>
+  </header>
+
+  <div class="hero">
+    <h2>Banking made simple.</h2>
+    <p>Manage your accounts, get support, and find a branch — all from one place. Chat with Lena to get started.</p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Checking & Savings</h3>
+      <p>View balances, recent transactions, and transfer funds between your accounts.</p>
+    </div>
+    <div class="card">
+      <h3>Loans</h3>
+      <p>Check your loan balance, payment schedule, or request a deferral.</p>
+    </div>
+    <div class="card">
+      <h3>Cards</h3>
+      <p>Freeze or unfreeze your card, update limits, and dispute transactions.</p>
+    </div>
+    <div class="card">
+      <h3>Find a Branch</h3>
+      <p>Locate the nearest Lendyr branch. Ask Lena to show you on a map.</p>
+    </div>
+  </div>
+
+  <!-- ─── Orchestrate Web Chat ──────────────────────────────────── -->
+  <script>
+    // Parses <branch-map>...</branch-map> out of an agent response text.
+    // Returns { text, branchData } where text has the tag stripped.
+    function extractBranchMap(text) {
+      const match = text && text.match(/<branch-map>([\s\S]*?)<\/branch-map>/);
+      if (!match) return null;
+      try {
+        const branchData = JSON.parse(match[1]);
+        const cleanText = text.replace(/<branch-map>[\s\S]*?<\/branch-map>/, '').trim();
+        return { cleanText, branchData };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Renders a Leaflet + OpenStreetMap map with branch pin markers into `container`.
+    function renderBranchMap(container, branches) {
+      const map = L.map(container, {
+        zoomControl: true,
+        scrollWheelZoom: false,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 18,
+      }).addTo(map);
+
+      const bounds = [];
+
+      branches.forEach(function (branch) {
+        const marker = L.marker([branch.lat, branch.lng]).addTo(map);
+        marker.bindPopup(
+          '<div style="font-size:13px;line-height:1.6">' +
+          '<strong>' + branch.name + '</strong><br>' +
+          branch.address + '<br>' +
+          branch.city + ', ' + branch.state + ' ' + branch.zip +
+          '</div>'
+        );
+        bounds.push([branch.lat, branch.lng]);
+      });
+
+      if (bounds.length === 1) {
+        map.setView(bounds[0], 14);
+      } else if (bounds.length > 1) {
+        map.fitBounds(bounds, { padding: [24, 24] });
+      }
+    }
+
+    // ── Web chat event handlers ──────────────────────────────────
+
+    function preReceiveHandler(event) {
+      if (!event?.message?.content) return;
+      event.message.content.forEach(function (element) {
+        if (element.response_type !== 'text' || !element.text) return;
+        const result = extractBranchMap(element.text);
+        if (!result) return;
+        element.text = result.cleanText;
+        element.response_type = 'user_defined';
+        element._branchData = result.branchData; // carried into userDefinedResponse
+      });
+    }
+
+    function userDefinedResponseHandler(event) {
+      const branchData = event.contentItem?._branchData;
+      if (!branchData || !branchData.branches || branchData.branches.length === 0) return;
+
+      const card = document.createElement('div');
+      card.className = 'branch-map-card';
+
+      const header = document.createElement('div');
+      header.className = 'branch-map-header';
+      header.textContent =
+        branchData.branches.length === 1
+          ? '1 branch found'
+          : branchData.branches.length + ' branches found';
+      card.appendChild(header);
+
+      const mapContainer = document.createElement('div');
+      mapContainer.className = 'branch-map-container';
+      card.appendChild(mapContainer);
+
+      event.hostElement.appendChild(card);
+      renderBranchMap(mapContainer, branchData.branches);
+    }
+
+    function onChatLoad(instance) {
+      instance.on('pre:receive', preReceiveHandler);
+      instance.on('userDefinedResponse', userDefinedResponseHandler);
+    }
+
+    // ── Orchestrate configuration ────────────────────────────────
+    // Replace the placeholder values below before deploying.
+
+    window.wxOConfiguration = {
+      orchestrationID: 'YOUR_ORCHESTRATE_TENANT_ID',
+      hostURL: 'YOUR_ORCHESTRATE_HOST_URL',
+      showLauncher: true,
+      chatOptions: {
+        agentId: 'YOUR_AGENT_ID',
+        agentEnvironmentId: 'YOUR_AGENT_ENVIRONMENT_ID',
+        onLoad: onChatLoad,
+      },
+      layout: {
+        form: 'float',
+        width: '380px',
+        height: '600px',
+      },
+      style: {
+        headerColor: '0f62fe',
+        primaryColor: '0f62fe',
+      },
+      header: {
+        showResetButton: true,
+        showAiDisclaimer: true,
+      },
+    };
+
+    setTimeout(function () {
+      const script = document.createElement('script');
+      script.src = window.wxOConfiguration.hostURL + '/wxochat/wxoLoader.js?embed=true';
+      script.addEventListener('load', function () { wxoLoader.init(); });
+      document.head.appendChild(script);
+    }, 0);
+  </script>
+
+  <!-- Leaflet — free, no API key required -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+</body>
+</html>
