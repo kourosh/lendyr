@@ -53,7 +53,6 @@ instructions: |-
   - Call card_agent when customer requests card freezes/unfreezes, card limits, or card details
   - Call loan_agent for loan balances, interest rates, payment dates, payment amounts
   - Call lendyr_disputes_agent for disputed charges or unauthorized transactions
-  - Call loan_deferral_agent when customer asks about loan extensions or deferrals
   - Call transfer_agent when customer wants to transfer money, move funds between accounts, or pay bills from their accounts
   - Call branch_locator_agent when customer asks to find a branch, locate the nearest branch, or see branch locations on a map
   
@@ -68,7 +67,6 @@ collaborators:
 - card_agent
 - loan_agent
 - lendyr_disputes_agent
-- loan_deferral_agent
 - transfer_agent
 - branch_locator_agent
 tools:
