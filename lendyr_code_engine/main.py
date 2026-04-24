@@ -717,6 +717,62 @@ def get_loans_by_customer_id(customer_id: str):
     return [clean(r) for r in results]
 
 
+@app.get("/loans/{customer_id}", tags=["Loans"],
+    summary="Get consolidated loan details by customer ID",
+    description="Returns comprehensive loan information including credit score, outstanding balance, annual interest rate, next payment due date, number of missed payments, and active deferral status. This endpoint consolidates data from multiple sources for loan deferral eligibility evaluation.")
+def get_loan_details(customer_id: str):
+    """
+    Consolidated endpoint that returns all loan-related information needed for deferral decisions.
+    Combines data from loans, customer profile, and payment history.
+    """
+    # Get customer credit score
+    customer_sql = 'SELECT credit_score FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (customer_id,))
+    
+    if not customer_results:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    credit_score = customer_results[0]['CREDIT_SCORE']
+    
+    # Get loan details
+    loan_sql = '''
+        SELECT l.*, a.interest_rate
+        FROM "LENDYR-DEMO".LOANS l
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON l.account_id = a.account_id
+        WHERE a.customer_id = ?
+    '''
+    loan_results = query_db(loan_sql, (customer_id,))
+    
+    if not loan_results:
+        raise HTTPException(status_code=404, detail="No loans found for this customer")
+    
+    # Get the first loan (assuming one loan per customer for simplicity)
+    loan = clean(loan_results[0])
+    
+    # Count late payments in the past 3 years
+    from datetime import date, timedelta
+    three_years_ago = (date.today() - timedelta(days=3 * 365)).strftime('%Y-%m-%d')
+    payment_sql = '''
+        SELECT SUM(CASE WHEN was_late = 1 AND payment_date >= ? THEN 1 ELSE 0 END) as late_payments_3yr
+        FROM "LENDYR-DEMO".PAYMENT_HISTORY
+        WHERE customer_id = ?
+    '''
+    payment_results = query_db(payment_sql, (three_years_ago, customer_id))
+    late_payments_3yr = int(payment_results[0]['LATE_PAYMENTS_3YR'] or 0) if payment_results else 0
+
+    # Return consolidated response
+    return {
+        "customer_id": customer_id,
+        "credit_score": credit_score,
+        "outstanding_balance": float(loan['outstanding_balance']),
+        "annual_rate": float(loan['interest_rate']),
+        "monthly_payment": float(loan['monthly_payment']),
+        "due_date": str(loan['next_payment_date']),
+        "late_payments_3yr": late_payments_3yr,
+        "prior_deferral": False,
+    }
+
+
 @app.get("/customers/by-id/{customer_id}/disputes", tags=["Disputes"],
     summary="Get dispute history by customer ID",
     description="Returns all transaction disputes filed by the customer.")

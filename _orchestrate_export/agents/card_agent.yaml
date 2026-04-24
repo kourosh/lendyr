@@ -1,0 +1,117 @@
+kind: native
+name: card_agent
+display_name: card_agent
+description: 'Specialist agent for Lendyr Bank that handles all card management tasks
+  including viewing card details, freezing and unfreezing cards, and updating daily
+  spending limits.
+
+  '
+context_access_enabled: true
+context_variables:
+- customer_id
+restrictions: editable
+memory_enabled: false
+llm: groq/openai/gpt-oss-120b
+style: default
+hide_reasoning: false
+instructions: |-
+  You are a helpful card management specialist for Lendyr Bank. Your job is to help customers manage their debit and credit cards.
+
+  IMMEDIATE ACTION REQUIRED:
+  When you receive a handoff, the customer_id is already provided in the context. Immediately call get_cards_by_customer_id with that customer_id. NEVER ask the customer to confirm their customer ID - it has already been authenticated. Do NOT ask for clarification or wait for confirmation.
+
+  After getting the cards, present them clearly to the customer.
+
+  VOICE CHANNEL OPTIMIZATION:
+  Check the communication channel from context. If the channel is "voice" or "phone":
+  - Provide concise, spoken-friendly responses
+  - For card listings, summarize: "You have a Visa debit card ending in 1234 and a Mastercard credit card ending in 5678"
+  - Avoid reading full card numbers unless specifically requested
+  - For status changes, confirm briefly: "I've frozen your Visa debit card. You can unfreeze it anytime"
+  - Skip visual formatting and use natural conversational language
+
+  For text/chat channels, handle card operations with full details:
+  - Always call get_cards_by_customer_id first to show the customer their cards before making any changes, so they can confirm which card to act on
+  - When freezing a card, confirm the action with the customer before proceeding and reassure them they can unfreeze it at any time
+  - When unfreezing a card, confirm the action and remind them to monitor for any suspicious activity
+  - When updating a daily limit, confirm the new limit before applying it
+  - Always confirm successful changes with a clear summary
+
+  Card statuses:
+  - active: card is working normally
+  - frozen: card is temporarily blocked, can be unfrozen
+  - blocked: card is permanently blocked and cannot be reactivated
+
+  ERROR HANDLING:
+  If a tool call fails, respond: "I apologize, but I'm having trouble accessing your card information right now. Please try again in a moment, or call us at 1-800-LENDYR-1 for immediate assistance."
+
+  Always be clear, accurate, and show complete information.
+guidelines: []
+collaborators: []
+tools:
+- get_customer_by_id_customers_by_id_customer_id_get
+- get_cards_by_customer_id_customers_by_id_customer_id_cards_get
+- update_card_status_cards_card_id_status_patch
+- update_card_limit_cards_card_id_limit_patch
+toolkits: []
+plugins:
+  agent_pre_invoke: []
+  agent_post_invoke: []
+knowledge_base: []
+chat_with_docs:
+  enabled: false
+  supports_full_document: true
+  vector_index:
+    chunk_size: 400
+    chunk_overlap: 50
+    limit: 10
+    extraction_strategy: express
+  generation:
+    prompt_instruction: ''
+    max_docs_passed_to_llm: 5
+    generated_response_length: Moderate
+    display_text_no_results_found: I searched my knowledge base, but did not find
+      anything related to your query
+    display_text_connectivity_issue: I might have information related to your query
+      to share, but am unable to connect to my knowledge base at the moment
+    idk_message: I'm afraid I don't understand. Please rephrase your question.
+    enabled: false
+  query_rewrite:
+    enabled: true
+  confidence_thresholds:
+    retrieval_confidence_threshold: Lowest
+    response_confidence_threshold: Lowest
+  citations:
+    citation_title: How do we know?
+    citations_shown: -1
+  hap_filtering:
+    output:
+      enabled: false
+      threshold: 0.5
+  query_source: Agent
+  agent_query_description: The query to search for in the knowledge base
+starter_prompts:
+  is_default_prompts: false
+  prompts:
+  - id: default0
+    title: What can you do for me?
+    subtitle: Learn about watsonx Orchestrate AI Agent and Gen AI capabilities
+    prompt: Summarize the capabilities of watsonx Orchestrate.
+    state: active
+  - id: default1
+    title: Formalize Message
+    subtitle: Craft more professional messages
+    prompt: Please revise the text in the following prompt to improve clarity and
+      brevity, while preserving all essential information.
+    state: active
+  - id: default2
+    title: Summarize Meeting Notes
+    subtitle: Bullet key points from meeting notes
+    prompt: Create a bulleted summary highlighting key points from the meeting notes
+      sent in the next prompt.
+    state: active
+welcome_content:
+  welcome_message: Hello, welcome to watsonx Orchestrate
+  description: Accuracy of generated answers may vary. Please double-check responses.
+  is_default_message: false
+spec_version: v1

@@ -6,14 +6,14 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/customers/by-id/{customer_id}/loans": {
+    "/customers/by-id/{customer_id}/transfers": {
       "get": {
         "tags": [
-          "Loans"
+          "Transfers"
         ],
-        "summary": "Get loan details by customer ID",
-        "description": "Returns loan details including outstanding balance and next payment date.",
-        "operationId": "get_loans_by_customer_id",
+        "summary": "Get transfer history by customer ID",
+        "description": "Returns all inbound and outbound transfers involving the customer.",
+        "operationId": "get_transfers_by_customer_id",
         "parameters": [
           {
             "name": "customer_id",

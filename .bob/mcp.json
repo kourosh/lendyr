@@ -2,12 +2,15 @@
   "mcpServers": {
     "wxo-docs": {
       "command": "uvx",
-      "args": [
-        "mcp-proxy",
-        "--transport",
-        "streamablehttp",
-        "https://developer.watson-orchestrate.ibm.com/mcp"
-      ]
+      "args": ["mcp-proxy", "--transport", "streamablehttp", "https://developer.watson-orchestrate.ibm.com/mcp"],
+      "alwaysAllow": ["search_ibm_watsonx_orchestrate_adk", "query_docs_filesystem_ibm_watsonx_orchestrate_adk"]
+    },
+    "wxo-local": {
+      "command": "uvx",
+      "args": ["--with", "ibm-watsonx-orchestrate==2.8.0", "ibm-watsonx-orchestrate-mcp-server"],
+      "env": {
+        "WXO_MCP_WORKING_DIRECTORY": "/Users/kk76/Public/lendyr"
+      }
     }
   }
 }
