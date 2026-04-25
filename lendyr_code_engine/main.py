@@ -695,6 +695,74 @@ def get_transactions_by_customer_id(
     
     return [clean(r) for r in results]
 
+@app.get("/customers/by-id/{customer_id}/transactions/by-category", tags=["Transactions"],
+    summary="Get transactions grouped by category",
+    description="Returns customer transactions organized by spending categories.")
+def get_transactions_by_category(
+    customer_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    category: Optional[str] = Query(default=None)
+):
+    """
+    Returns transactions grouped by their merchant_category field.
+    Categories are stored in the database (e.g., Shopping, Dining, Travel, Healthcare, etc.)
+    """
+    # Get all transactions for the customer with their categories
+    sql = '''
+        SELECT t.*, a.account_type, a.account_number
+        FROM "LENDYR-DEMO".TRANSACTIONS t
+        JOIN "LENDYR-DEMO".ACCOUNTS a ON t.account_id = a.account_id
+        WHERE a.customer_id = ?
+        ORDER BY t.created_at DESC
+        LIMIT ?
+    '''
+    results = query_db(sql, (customer_id, limit))
+    
+    if not results:
+        return {
+            "customer_id": customer_id,
+            "total_transactions": 0,
+            "categories": {}
+        }
+    
+    # Organize transactions by their merchant_category
+    categories = {}
+    
+    for transaction in results:
+        trans_dict = clean(transaction)
+        cat = trans_dict.get('merchant_category', 'Other')
+        
+        # Normalize category name
+        if not cat or cat.strip() == '':
+            cat = 'Other'
+        
+        # Filter by category if specified (case-insensitive)
+        if category and cat.lower() != category.lower():
+            continue
+        
+        if cat not in categories:
+            categories[cat] = {
+                "count": 0,
+                "total_amount": 0.0,
+                "transactions": []
+            }
+        
+        amount = float(trans_dict.get('amount', 0))
+        categories[cat]["count"] += 1
+        categories[cat]["total_amount"] += amount
+        categories[cat]["transactions"].append(trans_dict)
+    
+    # Round total amounts
+    for cat in categories:
+        categories[cat]["total_amount"] = round(categories[cat]["total_amount"], 2)
+    
+    return {
+        "customer_id": customer_id,
+        "total_transactions": sum(cat["count"] for cat in categories.values()),
+        "categories": categories
+    }
+
+
 
 @app.get("/customers/by-id/{customer_id}/cards", tags=["Cards"],
     summary="Get all cards by customer ID",
