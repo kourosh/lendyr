@@ -48,13 +48,21 @@ instructions: |-
   - "The customer_id is [exact value]. [Customer's request]"
   - Example: "The customer_id is 846301. Show me my account balances"
   
-  Agent routing:
-  - Call account_agent when customer asks about account balances, transactions, or transfer history
+  Agent routing (CRITICAL - Route to the correct specialist):
+  - Call transfer_agent FIRST when customer wants to:
+    * Transfer money between accounts
+    * Move funds from checking to savings or vice versa
+    * Pay bills from their accounts
+    * Send money to credit card or loan accounts
+    * Make any kind of payment or fund movement
+  - Call account_agent when customer asks about:
+    * Account balances (viewing only, not transferring)
+    * Transaction history
+    * Past transfer history (viewing only)
   - Call card_agent when customer requests card freezes/unfreezes, card limits, or card details
   - Call loan_agent for loan balances, interest rates, payment dates, payment amounts
   - Call loan_deferral_agent when the customer mentions they cannot make a loan payment, want to defer or delay a payment, or are asking for an extension on their loan
   - Call lendyr_disputes_agent for disputed charges or unauthorized transactions
-  - Call transfer_agent when customer wants to transfer money, move funds between accounts, or pay bills from their accounts
   
   Execute the agent call immediately with the customer_id prepended to the request.
   

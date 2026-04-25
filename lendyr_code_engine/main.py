@@ -156,13 +156,27 @@ def execute_update(sql: str, params: tuple[Any, ...]) -> bool:
 
     stmt = ibm_db.prepare(conn, sql)
     if not stmt:
-        raise RuntimeError(f"Failed to prepare SQL statement: {sql}")
+        error_msg = ibm_db.stmt_errormsg()
+        raise RuntimeError(f"Failed to prepare SQL statement: {sql}. Error: {error_msg}")
 
     for idx, value in enumerate(params):
-        ibm_db.bind_param(stmt, idx + 1, value)
+        success = ibm_db.bind_param(stmt, idx + 1, value)
+        if not success:
+            error_msg = ibm_db.stmt_errormsg()
+            raise RuntimeError(f"Failed to bind parameter {idx + 1} (value: {value}). Error: {error_msg}")
 
     result = ibm_db.execute(stmt)
-    return result
+    if not result:
+        error_msg = ibm_db.stmt_errormsg()
+        raise RuntimeError(f"Failed to execute SQL statement: {sql}. Error: {error_msg}")
+    
+    # Commit the transaction to persist changes
+    commit_result = ibm_db.commit(conn)
+    if not commit_result:
+        error_msg = ibm_db.conn_errormsg(conn)
+        raise RuntimeError(f"Failed to commit transaction. Error: {error_msg}")
+    
+    return True
 
 def get_customer_id(email: str) -> Optional[int]:
     """Get customer_id from email"""
@@ -949,140 +963,166 @@ def transfer_money_by_customer_id(customer_id: str, body: TransferRequest):
     """
     from datetime import datetime
     
-    # Validate amount
-    if body.amount <= 0:
-        raise HTTPException(status_code=400, detail="Transfer amount must be greater than 0")
+    try:
+        # Validate amount
+        if body.amount <= 0:
+            raise HTTPException(status_code=400, detail="Transfer amount must be greater than 0")
+        
+        # Get customer info
+        customer_sql = 'SELECT first_name, last_name FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+        customer_results = query_db(customer_sql, (customer_id,))
+        
+        if not customer_results:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        customer_name = f"{customer_results[0]['FIRST_NAME']} {customer_results[0]['LAST_NAME']}"
+        
+        # Get source account
+        from_account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+        from_account_results = query_db(from_account_sql, (customer_id, body.from_account_type))
+        
+        if not from_account_results:
+            raise HTTPException(status_code=404, detail=f"Source {body.from_account_type} account not found")
+        
+        from_account = clean(from_account_results[0])
+        
+        # Get destination account
+        to_account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+        to_account_results = query_db(to_account_sql, (customer_id, body.to_account_type))
+        
+        if not to_account_results:
+            raise HTTPException(status_code=404, detail=f"Destination {body.to_account_type} account not found")
+        
+        to_account = clean(to_account_results[0])
+        
+        # Prevent transfer to same account
+        if body.from_account_type == body.to_account_type:
+            raise HTTPException(status_code=400, detail="Cannot transfer to the same account type")
+        
+        # Check sufficient funds
+        current_balance = float(from_account['balance'])
+        if current_balance < body.amount:
+            return {
+                "success": False,
+                "error": "insufficient_funds",
+                "message": f"Insufficient funds. You have ${current_balance:.2f} available in your {body.from_account_type} account.",
+                "available_balance": current_balance,
+                "requested_amount": body.amount,
+                "suggestion": f"Would you like to transfer ${current_balance:.2f} instead?"
+            }
+        
+        # Determine transfer type
+        is_bill_payment = body.to_account_type in ('credit', 'loan')
+        transfer_type = "bill_payment" if is_bill_payment else "transfer"
+        
+        # Calculate new balances
+        new_from_balance = current_balance - body.amount
+        current_to_balance = float(to_account['balance'])
+        
+        # For credit/loan accounts (stored as negative balances), payment adds to balance (reduces debt)
+        # Example: -$887.11 + $887.11 = $0.00 (debt paid off)
+        if is_bill_payment:
+            new_to_balance = current_to_balance + body.amount
+        else:
+            new_to_balance = current_to_balance + body.amount
+        
+        # Log the transfer attempt
+        print(f"=== TRANSFER DEBUG ===")
+        print(f"Customer: {customer_id} ({customer_name})")
+        print(f"From: {body.from_account_type} (ID: {from_account['account_id']}) - Balance: ${current_balance:.2f} -> ${new_from_balance:.2f}")
+        print(f"To: {body.to_account_type} (ID: {to_account['account_id']}) - Balance: ${current_to_balance:.2f} -> ${new_to_balance:.2f}")
+        print(f"Amount: ${body.amount:.2f}")
+        
+        # Update source account balance
+        update_from_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
+        result1 = execute_update(update_from_sql, (new_from_balance, from_account['account_id']))
+        print(f"Update FROM account result: {result1}")
+        
+        # Update destination account balance
+        update_to_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
+        result2 = execute_update(update_to_sql, (new_to_balance, to_account['account_id']))
+        print(f"Update TO account result: {result2}")
+        
+        # Verify the updates
+        verify_from_sql = 'SELECT balance FROM "LENDYR-DEMO".ACCOUNTS WHERE account_id = ?'
+        verify_from = query_db(verify_from_sql, (from_account['account_id'],))
+        verify_to = query_db(verify_to_sql := 'SELECT balance FROM "LENDYR-DEMO".ACCOUNTS WHERE account_id = ?', (to_account['account_id'],))
+        print(f"Verified FROM balance: {verify_from[0]['BALANCE'] if verify_from else 'NOT FOUND'}")
+        print(f"Verified TO balance: {verify_to[0]['BALANCE'] if verify_to else 'NOT FOUND'}")
+        print(f"=== END TRANSFER DEBUG ===")
     
-    # Get customer info
-    customer_sql = 'SELECT first_name, last_name FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
-    customer_results = query_db(customer_sql, (customer_id,))
-    
-    if not customer_results:
-        raise HTTPException(status_code=404, detail="Customer not found")
-    
-    customer_name = f"{customer_results[0]['FIRST_NAME']} {customer_results[0]['LAST_NAME']}"
-    
-    # Get source account
-    from_account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
-    from_account_results = query_db(from_account_sql, (customer_id, body.from_account_type))
-    
-    if not from_account_results:
-        raise HTTPException(status_code=404, detail=f"Source {body.from_account_type} account not found")
-    
-    from_account = clean(from_account_results[0])
-    
-    # Get destination account
-    to_account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
-    to_account_results = query_db(to_account_sql, (customer_id, body.to_account_type))
-    
-    if not to_account_results:
-        raise HTTPException(status_code=404, detail=f"Destination {body.to_account_type} account not found")
-    
-    to_account = clean(to_account_results[0])
-    
-    # Prevent transfer to same account
-    if body.from_account_type == body.to_account_type:
-        raise HTTPException(status_code=400, detail="Cannot transfer to the same account type")
-    
-    # Check sufficient funds
-    current_balance = float(from_account['balance'])
-    if current_balance < body.amount:
+        # Create transaction records for audit trail
+        transaction_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Debit transaction for source account
+        debit_sql = '''
+            INSERT INTO "LENDYR-DEMO".TRANSACTIONS
+            (account_id, transaction_type, amount, merchant_name, created_at, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        '''
+        try:
+            execute_update(debit_sql, (
+                from_account['account_id'],
+                'transfer_out',
+                -body.amount,
+                f"Transfer to {body.to_account_type}",
+                transaction_date,
+                'completed'
+            ))
+        except Exception as e:
+            print(f"Failed to create debit transaction: {e}")
+        
+        # Credit transaction for destination account
+        credit_sql = '''
+            INSERT INTO "LENDYR-DEMO".TRANSACTIONS
+            (account_id, transaction_type, amount, merchant_name, created_at, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        '''
+        try:
+            execute_update(credit_sql, (
+                to_account['account_id'],
+                'transfer_in' if not is_bill_payment else 'payment',
+                body.amount,
+                f"Transfer from {body.from_account_type}",
+                transaction_date,
+                'completed'
+            ))
+        except Exception as e:
+            print(f"Failed to create credit transaction: {e}")
+        
+        # Return success response
         return {
-            "success": False,
-            "error": "insufficient_funds",
-            "message": f"Insufficient funds. You have ${current_balance:.2f} available in your {body.from_account_type} account.",
-            "available_balance": current_balance,
-            "requested_amount": body.amount,
-            "suggestion": f"Would you like to transfer ${current_balance:.2f} instead?"
+            "success": True,
+            "transfer_type": transfer_type,
+            "customer_name": customer_name,
+            "transfer_details": {
+                "from_account": {
+                    "type": body.from_account_type,
+                    "account_number": from_account['account_number'],
+                    "previous_balance": current_balance,
+                    "new_balance": new_from_balance
+                },
+                "to_account": {
+                    "type": body.to_account_type,
+                    "account_number": to_account['account_number'],
+                    "previous_balance": current_to_balance,
+                    "new_balance": new_to_balance
+                },
+                "amount": body.amount,
+                "description": body.description,
+                "timestamp": transaction_date
+            },
+            "message": f"Successfully transferred ${body.amount:.2f} from {body.from_account_type} to {body.to_account_type}" +
+                       (f" (bill payment)" if is_bill_payment else "")
         }
     
-    # Determine transfer type
-    is_bill_payment = body.to_account_type in ('credit', 'loan')
-    transfer_type = "bill_payment" if is_bill_payment else "transfer"
-    
-    # Calculate new balances
-    new_from_balance = current_balance - body.amount
-    current_to_balance = float(to_account['balance'])
-    
-    # For credit/loan accounts (stored as negative balances), payment adds to balance (reduces debt)
-    # Example: -$887.11 + $887.11 = $0.00 (debt paid off)
-    if is_bill_payment:
-        new_to_balance = current_to_balance + body.amount
-    else:
-        new_to_balance = current_to_balance + body.amount
-    
-    # Update source account balance
-    update_from_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
-    execute_update(update_from_sql, (new_from_balance, from_account['account_id']))
-    
-    # Update destination account balance
-    update_to_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
-    execute_update(update_to_sql, (new_to_balance, to_account['account_id']))
-    
-    # Create transaction records for audit trail
-    transaction_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    # Debit transaction for source account
-    debit_sql = '''
-        INSERT INTO "LENDYR-DEMO".TRANSACTIONS 
-        (account_id, transaction_type, amount, merchant_name, created_at, status)
-        VALUES (?, ?, ?, ?, ?, ?)
-    '''
-    try:
-        execute_update(debit_sql, (
-            from_account['account_id'],
-            'transfer_out',
-            -body.amount,
-            f"Transfer to {body.to_account_type}",
-            transaction_date,
-            'completed'
-        ))
-    except:
-        pass  # Transaction table might not support this structure
-    
-    # Credit transaction for destination account
-    credit_sql = '''
-        INSERT INTO "LENDYR-DEMO".TRANSACTIONS 
-        (account_id, transaction_type, amount, merchant_name, created_at, status)
-        VALUES (?, ?, ?, ?, ?, ?)
-    '''
-    try:
-        execute_update(credit_sql, (
-            to_account['account_id'],
-            'transfer_in' if not is_bill_payment else 'payment',
-            body.amount,
-            f"Transfer from {body.from_account_type}",
-            transaction_date,
-            'completed'
-        ))
-    except:
-        pass  # Transaction table might not support this structure
-    
-    # Return success response
-    return {
-        "success": True,
-        "transfer_type": transfer_type,
-        "customer_name": customer_name,
-        "transfer_details": {
-            "from_account": {
-                "type": body.from_account_type,
-                "account_number": from_account['account_number'],
-                "previous_balance": current_balance,
-                "new_balance": new_from_balance
-            },
-            "to_account": {
-                "type": body.to_account_type,
-                "account_number": to_account['account_number'],
-                "previous_balance": current_to_balance,
-                "new_balance": new_to_balance
-            },
-            "amount": body.amount,
-            "description": body.description,
-            "timestamp": transaction_date
-        },
-        "message": f"Successfully transferred ${body.amount:.2f} from {body.from_account_type} to {body.to_account_type}" + 
-                   (f" (bill payment)" if is_bill_payment else "")
-    }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"=== TRANSFER ERROR ===")
+        print(f"Error: {str(e)}")
+        print(f"=== END TRANSFER ERROR ===")
+        raise HTTPException(status_code=500, detail=f"Transfer failed: {str(e)}")
 
 
 
