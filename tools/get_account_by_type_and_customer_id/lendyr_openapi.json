@@ -40,7 +40,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Account"
+                }
               }
             }
           },
@@ -60,6 +62,71 @@
   },
   "components": {
     "schemas": {
+      "Account": {
+        "type": "object",
+        "title": "Account",
+        "properties": {
+          "account_id": {
+            "type": "integer",
+            "title": "Account Id"
+          },
+          "customer_id": {
+            "type": "integer",
+            "title": "Customer Id"
+          },
+          "account_number": {
+            "type": "string",
+            "title": "Account Number"
+          },
+          "account_type": {
+            "type": "string",
+            "title": "Account Type"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "balance": {
+            "type": "number",
+            "title": "Balance"
+          },
+          "credit_limit": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "title": "Credit Limit"
+          },
+          "interest_rate": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "title": "Interest Rate"
+          },
+          "opened_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "title": "Opened At"
+          },
+          "currency": {
+            "type": "string",
+            "title": "Currency"
+          }
+        },
+        "required": [
+          "account_id",
+          "customer_id",
+          "account_number",
+          "account_type",
+          "status",
+          "balance",
+          "currency"
+        ]
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
