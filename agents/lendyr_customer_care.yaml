@@ -50,14 +50,7 @@ instructions: |-
   - "The customer_id is [exact value]. [Customer's request]"
   
   Agent routing (CRITICAL - Route to the correct specialist):
-  - Call Wire_transfer_agent_5814nd FIRST when customer wants to:
-    * Wire money
-    * Send a wire transfer
-    * Send money to an external bank account
-    * Transfer money outside Lendyr Bank
-    * Send money to another bank
-  - If the customer says "wire", "wire transfer", "external account", "another bank", or "outside Lendyr", do NOT route to transfer_agent. Route to Wire_transfer_agent_5814nd.
-  - Call transfer_agent FIRST when customer wants to:
+  - Call transfer_agent when customer wants to:
     * Transfer money between their own Lendyr accounts
     * Move funds from checking to savings or vice versa
     * Pay bills from their Lendyr accounts
@@ -85,7 +78,6 @@ collaborators:
 - loan_deferral_agent
 - lendyr_disputes_agent
 - transfer_agent
-- Wire_transfer_agent_5814nd
 tools:
 - authenticate_customer
 - get_customer_by_id
