@@ -1,0 +1,725 @@
+{
+  "spec": {
+    "kind": "flow",
+    "name": "Wire_Transfer_Flow_9172Ci",
+    "initiators": [],
+    "description": "A workflow to let customers wire money to external account. It checks to see if the customer has enough money for the wire transfer, and it checks to see if the amount is more than $10k, which would necessitate a call to a specialist.",
+    "display_name": "Wire Transfer Flow",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "amount",
+        "customer_id",
+        "account_type"
+      ],
+      "properties": {
+        "amount": {
+          "type": "number",
+          "description": "The amount of money the customer is requesting to transfer."
+        },
+        "customer_id": {
+          "type": "string",
+          "description": "The ID of the authenticated customer "
+        },
+        "account_type": {
+          "type": "string",
+          "description": "The type of account, checking or savings"
+        }
+      }
+    },
+    "output_schema": {}
+  },
+  "edges": [
+    {
+      "id": "0af762ef-7166-40c1-a0e3-0d589a50abb9",
+      "end": "tool_7860bcda-0eba-42fa-9f0b-90644af0a0e7",
+      "start": "__start__"
+    },
+    {
+      "id": "5da7cbc3-bb8f-4cd0-a03b-ea9fcdef1ff6",
+      "end": "Branch 1",
+      "start": "tool_7860bcda-0eba-42fa-9f0b-90644af0a0e7"
+    },
+    {
+      "id": "23a3a8ab-5c71-4358-999c-0dd7a1cd3a60",
+      "end": "UserActivity 1",
+      "start": "Branch 1",
+      "display_name": "Path 1"
+    },
+    {
+      "id": "45a1e7f0-cada-4403-9a74-6b049c905160",
+      "end": "Branch 2",
+      "start": "Branch 1",
+      "display_name": "Path 2"
+    },
+    {
+      "id": "2f99651b-a704-447a-8bf5-052d107f365d",
+      "end": "__end__",
+      "start": "UserActivity 2"
+    },
+    {
+      "id": "a206d19d-1bb7-4216-94a3-212371299b76",
+      "end": "__end__",
+      "start": "UserActivity 1"
+    },
+    {
+      "id": "baeea75d-db0c-4b99-afed-ab199d2a4e18",
+      "end": "UserActivity 2",
+      "start": "Branch 2",
+      "display_name": "Path 1"
+    },
+    {
+      "id": "18ebb4a1-1bce-4f65-83f6-db816184c1b1",
+      "end": "UserActivity 3",
+      "start": "Branch 2",
+      "display_name": "Path 2"
+    }
+  ],
+  "nodes": {
+    "__end__": {
+      "spec": {
+        "kind": "end",
+        "name": "__end__",
+        "position": {
+          "x": 1,
+          "y": 2034
+        }
+      }
+    },
+    "Branch 1": {
+      "spec": {
+        "kind": "branch",
+        "name": "Branch 1",
+        "position": {
+          "x": 0,
+          "y": 301
+        },
+        "evaluator": {
+          "conditions": [
+            {
+              "default": false,
+              "edge_id": "23a3a8ab-5c71-4358-999c-0dd7a1cd3a60",
+              "metadata": {
+                "id": "f69a4258-ff86-449b-b1c1-8d5c65deb544",
+                "conditions": []
+              },
+              "expression": "float(flow.input.amount) > float(flow[\"Get a specific account type by customer ID\"].output.balance)"
+            },
+            {
+              "default": true,
+              "edge_id": "45a1e7f0-cada-4403-9a74-6b049c905160",
+              "metadata": {
+                "id": "6abaab3f-025b-43e6-b094-b4322040154e"
+              }
+            }
+          ]
+        },
+        "display_name": "Funds sufficient check",
+        "match_policy": "FIRST_MATCH"
+      }
+    },
+    "Branch 2": {
+      "spec": {
+        "kind": "branch",
+        "name": "Branch 2",
+        "position": {
+          "x": 429,
+          "y": 447
+        },
+        "evaluator": {
+          "conditions": [
+            {
+              "default": false,
+              "edge_id": "baeea75d-db0c-4b99-afed-ab199d2a4e18",
+              "metadata": {
+                "id": "e1496f67-7da7-4516-83e2-0372377bf315",
+                "conditions": [
+                  {
+                    "value": "10000",
+                    "isValid": true,
+                    "dataType": "number",
+                    "operator": "<=",
+                    "variableName": "flow.input.amount"
+                  }
+                ]
+              },
+              "expression": "flow.input.amount <= 10000"
+            },
+            {
+              "default": true,
+              "edge_id": "18ebb4a1-1bce-4f65-83f6-db816184c1b1",
+              "metadata": {
+                "id": "1b3bc8ce-b13c-4c94-be2a-6d6448a00827"
+              }
+            }
+          ]
+        },
+        "display_name": "Limit checker",
+        "match_policy": "FIRST_MATCH"
+      }
+    },
+    "__start__": {
+      "spec": {
+        "kind": "start",
+        "name": "__start__",
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "UserActivity 1": {
+      "spec": {
+        "kind": "user_flow",
+        "name": "UserActivity 1",
+        "position": {
+          "x": -19,
+          "y": 493
+        },
+        "dimensions": {
+          "width": 286,
+          "height": 280
+        },
+        "initiators": [],
+        "display_name": "Insufficient funds",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "assignees": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "wxo-user"
+              }
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "id": "62934091-93bb-40eb-8f81-64cd950873d7",
+          "end": "user_65fb0083-bc5b-4235-b418-49ddb6670480",
+          "start": "UserActivity 1__start__"
+        },
+        {
+          "id": "9e0fe3cc-cd37-4e72-86c1-042ced009f80",
+          "end": "UserActivity 1__end__",
+          "start": "user_65fb0083-bc5b-4235-b418-49ddb6670480"
+        }
+      ],
+      "nodes": {
+        "UserActivity 1__end__": {
+          "spec": {
+            "kind": "end",
+            "name": "UserActivity 1__end__",
+            "position": {
+              "x": 20,
+              "y": 240
+            }
+          }
+        },
+        "UserActivity 1__start__": {
+          "spec": {
+            "kind": "start",
+            "name": "UserActivity 1__start__",
+            "position": {
+              "x": 20,
+              "y": 0
+            }
+          }
+        },
+        "user_65fb0083-bc5b-4235-b418-49ddb6670480": {
+          "spec": {
+            "kind": "user",
+            "name": "user_65fb0083-bc5b-4235-b418-49ddb6670480",
+            "fields": [
+              {
+                "kind": "text",
+                "name": "text_output_655b9b62-97c9-42d2-a794-c29b48db009f",
+                "text": "Insufficient funds",
+                "direction": "output",
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            ],
+            "owners": [],
+            "position": {
+              "x": 20,
+              "y": 110
+            },
+            "display_name": "Message 1"
+          }
+        }
+      },
+      "schemas": {}
+    },
+    "UserActivity 2": {
+      "spec": {
+        "kind": "user_flow",
+        "name": "UserActivity 2",
+        "position": {
+          "x": 409,
+          "y": 1319
+        },
+        "dimensions": {
+          "width": 286,
+          "height": 456
+        },
+        "initiators": [],
+        "display_name": "Sufficient funds",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "assignees": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "wxo-user"
+              }
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "id": "c2372dbc-bacb-4b4b-ac47-2b1ca3ad8ad2",
+          "end": "user_9eebf564-ce5f-49f6-a925-d96d9909fc09",
+          "start": "UserActivity 2__start__"
+        },
+        {
+          "id": "71fab990-694b-440c-b260-4a19ba8de471",
+          "end": "UserActivity 2__end__",
+          "start": "user_36e79001-afc4-4270-b1b9-61fc6be5e2f4"
+        },
+        {
+          "id": "b251fd53-da7f-4a1f-a832-388d4be83596",
+          "end": "user_36e79001-afc4-4270-b1b9-61fc6be5e2f4",
+          "start": "user_9eebf564-ce5f-49f6-a925-d96d9909fc09"
+        }
+      ],
+      "nodes": {
+        "UserActivity 2__end__": {
+          "spec": {
+            "kind": "end",
+            "name": "UserActivity 2__end__",
+            "position": {
+              "x": 20,
+              "y": 408
+            }
+          }
+        },
+        "UserActivity 2__start__": {
+          "spec": {
+            "kind": "start",
+            "name": "UserActivity 2__start__",
+            "position": {
+              "x": 20,
+              "y": 0
+            }
+          }
+        },
+        "user_36e79001-afc4-4270-b1b9-61fc6be5e2f4": {
+          "spec": {
+            "kind": "user",
+            "name": "user_36e79001-afc4-4270-b1b9-61fc6be5e2f4",
+            "fields": [
+              {
+                "kind": "text",
+                "name": "text_output_ded6933b-2c83-48c6-8fb8-0cd4bb64bf4f",
+                "text": "Your wire transfer has been initiated.",
+                "direction": "output",
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            ],
+            "owners": [],
+            "position": {
+              "x": 20,
+              "y": 278
+            },
+            "display_name": "Message 2"
+          }
+        },
+        "user_9eebf564-ce5f-49f6-a925-d96d9909fc09": {
+          "spec": {
+            "form": {
+              "name": "form_b1c60aba-f353-4185-a378-ccc336c9fa73",
+              "fields": [
+                {
+                  "kind": "text",
+                  "name": "field_1",
+                  "uiSchema": {
+                    "ui:title": "Routing number of destination account",
+                    "ui:widget": "TextWidget"
+                  },
+                  "direction": "input",
+                  "input_map": {
+                    "spec": {
+                      "maps": [],
+                      "name": ""
+                    }
+                  },
+                  "display_name": "Routing number of destination account",
+                  "input_schema": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {},
+                    "additionalProperties": false
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "uiSchemaParkingLot": {}
+                },
+                {
+                  "kind": "text",
+                  "name": "field_2",
+                  "uiSchema": {
+                    "ui:title": "Account number of receiving party",
+                    "ui:widget": "TextWidget"
+                  },
+                  "direction": "input",
+                  "input_map": {
+                    "spec": {
+                      "maps": [],
+                      "name": ""
+                    }
+                  },
+                  "display_name": "Account number of receiving party",
+                  "input_schema": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {},
+                    "additionalProperties": false
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "uiSchemaParkingLot": {}
+                },
+                {
+                  "kind": "text",
+                  "name": "field_3",
+                  "uiSchema": {
+                    "ui:title": "Full name of person or business receiving the money",
+                    "ui:widget": "TextWidget"
+                  },
+                  "direction": "input",
+                  "input_map": {
+                    "spec": {
+                      "maps": [],
+                      "name": ""
+                    }
+                  },
+                  "display_name": "Full name of person or business receiving the money",
+                  "input_schema": {
+                    "type": "object",
+                    "required": [],
+                    "properties": {},
+                    "additionalProperties": false
+                  },
+                  "output_schema": {
+                    "type": "object",
+                    "required": [
+                      "value"
+                    ],
+                    "properties": {
+                      "value": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "uiSchemaParkingLot": {}
+                }
+              ],
+              "buttons": [
+                {
+                  "kind": "submit",
+                  "name": "submit",
+                  "edge_id": "b251fd53-da7f-4a1f-a832-388d4be83596",
+                  "visible": true,
+                  "display_name": "Submit"
+                },
+                {
+                  "kind": "cancel",
+                  "name": "cancel",
+                  "visible": true,
+                  "display_name": "Cancel"
+                }
+              ],
+              "jsonSchema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "field_1": {
+                    "type": "string",
+                    "title": "Routing number of destination account"
+                  },
+                  "field_2": {
+                    "type": "string",
+                    "title": "Account number of receiving party"
+                  },
+                  "field_3": {
+                    "type": "string",
+                    "title": "Full name of person or business receiving the money"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "display_name": "Form 1"
+            },
+            "kind": "user",
+            "name": "user_9eebf564-ce5f-49f6-a925-d96d9909fc09",
+            "fields": [],
+            "owners": [],
+            "position": {
+              "x": 20,
+              "y": 108
+            },
+            "display_name": "Wire transfer information"
+          }
+        }
+      },
+      "schemas": {}
+    },
+    "UserActivity 3": {
+      "spec": {
+        "kind": "user_flow",
+        "name": "UserActivity 3",
+        "position": {
+          "x": 844,
+          "y": 811
+        },
+        "dimensions": {
+          "width": 286,
+          "height": 280
+        },
+        "initiators": [],
+        "display_name": "Over $10k limit",
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "assignees": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "wxo-user"
+              }
+            }
+          }
+        }
+      },
+      "edges": [
+        {
+          "id": "5bf01a66-1029-4067-9ac1-f5c1c8e2e680",
+          "end": "user_af8f6d7b-4a74-4c7e-96cf-ac296806de83",
+          "start": "UserActivity 3__start__"
+        },
+        {
+          "id": "1d699725-148b-4535-9fce-1ec591b7aece",
+          "end": "UserActivity 3__end__",
+          "start": "user_af8f6d7b-4a74-4c7e-96cf-ac296806de83"
+        }
+      ],
+      "nodes": {
+        "UserActivity 3__end__": {
+          "spec": {
+            "kind": "end",
+            "name": "UserActivity 3__end__",
+            "position": {
+              "x": 20,
+              "y": 240
+            }
+          }
+        },
+        "UserActivity 3__start__": {
+          "spec": {
+            "kind": "start",
+            "name": "UserActivity 3__start__",
+            "position": {
+              "x": 20,
+              "y": 0
+            }
+          }
+        },
+        "user_af8f6d7b-4a74-4c7e-96cf-ac296806de83": {
+          "spec": {
+            "kind": "user",
+            "name": "user_af8f6d7b-4a74-4c7e-96cf-ac296806de83",
+            "fields": [
+              {
+                "kind": "text",
+                "name": "text_output_df8446e7-4bc9-4ed5-8846-17d68fa829c9",
+                "text": "This is over the $10,000 wire transfer limit.",
+                "direction": "output",
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "value"
+                  ],
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            ],
+            "owners": [],
+            "position": {
+              "x": 20,
+              "y": 110
+            },
+            "display_name": "Message 3"
+          }
+        }
+      },
+      "schemas": {}
+    },
+    "tool_7860bcda-0eba-42fa-9f0b-90644af0a0e7": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_7860bcda-0eba-42fa-9f0b-90644af0a0e7",
+        "tool": "get_account_by_type_and_customer_id:359961a7-1ce4-4bf6-9e2c-a202f8d936cc",
+        "position": {
+          "x": 0,
+          "y": 155
+        },
+        "description": "Returns a single account of the given type (checking, savings, credit, loan).",
+        "display_name": "Get a specific account type by customer ID",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "customer_id",
+            "account_type"
+          ],
+          "properties": {
+            "customer_id": {
+              "in": "path",
+              "type": "string",
+              "title": "customer_id",
+              "aliasName": "customer_id"
+            },
+            "account_type": {
+              "in": "path",
+              "type": "string",
+              "title": "account_type",
+              "aliasName": "account_type"
+            }
+          }
+        },
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "title": "Status"
+            },
+            "balance": {
+              "type": "number",
+              "title": "Balance"
+            },
+            "currency": {
+              "type": "string",
+              "title": "Currency"
+            },
+            "opened_at": {
+              "type": "string",
+              "title": "Opened At",
+              "format": "date"
+            },
+            "account_id": {
+              "type": "integer",
+              "title": "Account Id"
+            },
+            "customer_id": {
+              "type": "integer",
+              "title": "Customer Id"
+            },
+            "account_type": {
+              "type": "string",
+              "title": "Account Type"
+            },
+            "credit_limit": {
+              "type": "number",
+              "title": "Credit Limit"
+            },
+            "interest_rate": {
+              "type": "number",
+              "title": "Interest Rate"
+            },
+            "account_number": {
+              "type": "string",
+              "title": "Account Number"
+            }
+          }
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong while running 'Get a specific account type by customer ID'",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "metadata": {
+    "llm_model": "groq/openai/gpt-oss-120b",
+    "source_kind": "ui",
+    "is_system_generated_description": false
+  },
+  "output_map": {
+    "spec": {
+      "maps": [],
+      "name": "",
+      "fallback_strategy": "ask_the_user"
+    }
+  }
+}

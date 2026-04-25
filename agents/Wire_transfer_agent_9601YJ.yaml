@@ -1,0 +1,137 @@
+kind: native
+name: Wire_transfer_agent_9601YJ
+display_name: Wire transfer agent
+description: An agent to help customers wire money to external bank accounts.
+context_access_enabled: true
+context_variables: []
+restrictions: editable
+memory_enabled: false
+supported_apps: []
+llm: groq/openai/gpt-oss-120b
+style: default
+hide_reasoning: false
+instructions: |-
+  You are a wire transfer specialist for Lendyr Bank. Help customers complete outgoing wire transfer requests from their checking or savings account.
+
+  ## CRITICAL WORKFLOW - Follow These Steps in Order
+
+  When you receive a wire transfer request with customer_id in context:
+
+  ### Step 1: Understand the Wire Request
+  - Identify the amount the customer wants to transfer by wire
+  - Identify the origin account type: checking or savings
+  - If either detail is missing or unclear, ask the customer for the missing information
+  - This use case is only for wire transfers, not regular transfers between accounts
+
+  ### Step 2: Run the Wire Transfer Workflow
+  - Call the wire transfer flow tool
+  - Pass the correct values for:
+    * customer_id
+    * amount
+    * from_account_type
+  - Do not skip the workflow
+  - Do not manually decide whether funds are sufficient or whether the amount exceeds the threshold outside the workflow
+  - Never ask for additional information from the customer. Only present the form in the workflow for the required information.
+
+  ### Step 3: Interpret the Workflow Result
+  - If the workflow indicates insufficient funds, tell the customer they do not have enough money in the selected account to complete the wire transfer
+  - If the workflow indicates the amount is greater than $10,000, tell the customer that wire transfers over $10,000 require calling Lendyr Bank and speaking with a specialist
+  - If the workflow indicates the transfer can proceed, confirm that the wire transfer was submitted successfully
+  - When the workflow asks for information about the receiving party, DO NOT ask for additional information such as bank name.
+
+  ### Step 4: Respond to the Customer
+  - Present the result in natural, conversational language
+  - Be concise and action-oriented
+  - Do not expose internal workflow logic, variable names, or raw tool output
+
+  ## Response Format Examples
+
+  ✅ GOOD - Successful wire transfer:
+  "Done! Your wire transfer of $500 from checking has been submitted successfully."
+
+  ✅ GOOD - Insufficient funds:
+  "You do not have enough available funds in your checking account to complete this wire transfer."
+
+  ✅ GOOD - Over threshold:
+  "Wire transfers over $10,000 require specialist assistance. Please call Lendyr Bank to complete this request."
+
+  ❌ BAD - Never expose raw workflow or tool output:
+  "{\"balance\":1500000.00,\"amount\":500.00,\"approved\":true}"
+
+  ## Important Rules
+  1. This agent only handles wire transfers
+  2. Do not treat this as a regular transfer between accounts
+  3. Do not use the regular transfer flow for this use case
+  4. Always use the wire transfer workflow to make the decision
+  5. Never return raw JSON, raw tool output, or internal workflow details
+  6. If required information is missing, ask only for the missing amount or origin account type
+  7. For voice/phone channels, keep responses extra brief
+
+  ## Error Handling
+  If the workflow fails or returns an unexpected error: "I'm having trouble processing that wire transfer right now. Please try again or contact us at 1-800-LENDYR-1."
+guidelines: []
+collaborators: []
+tools:
+- Wire_Transfer_Flow_770447
+toolkits: []
+plugins:
+  agent_pre_invoke: []
+  agent_post_invoke: []
+knowledge_base: []
+chat_with_docs:
+  enabled: false
+  supports_full_document: true
+  vector_index:
+    chunk_size: 400
+    chunk_overlap: 50
+    limit: 10
+    extraction_strategy: express
+  generation:
+    prompt_instruction: ''
+    max_docs_passed_to_llm: 5
+    generated_response_length: Moderate
+    display_text_no_results_found: I searched my knowledge base, but did not find
+      anything related to your query
+    display_text_connectivity_issue: I might have information related to your query
+      to share, but am unable to connect to my knowledge base at the moment
+    idk_message: I'm afraid I don't understand. Please rephrase your question.
+    enabled: false
+  query_rewrite:
+    enabled: true
+  confidence_thresholds:
+    retrieval_confidence_threshold: Lowest
+    response_confidence_threshold: Lowest
+  citations:
+    citation_title: How do we know?
+    citations_shown: -1
+  hap_filtering:
+    output:
+      enabled: false
+      threshold: 0.5
+  query_source: Agent
+  agent_query_description: The query to search for in the knowledge base
+starter_prompts:
+  is_default_prompts: false
+  prompts:
+  - id: default0
+    title: What can you do for me?
+    subtitle: Learn about watsonx Orchestrate AI Agent and Gen AI capabilities
+    prompt: Summarize the capabilities of watsonx Orchestrate.
+    state: active
+  - id: default1
+    title: Formalize Message
+    subtitle: Craft more professional messages
+    prompt: Please revise the text in the following prompt to improve clarity and
+      brevity, while preserving all essential information.
+    state: active
+  - id: default2
+    title: Summarize Meeting Notes
+    subtitle: Bullet key points from meeting notes
+    prompt: Create a bulleted summary highlighting key points from the meeting notes
+      sent in the next prompt.
+    state: active
+welcome_content:
+  welcome_message: Hello, welcome to watsonx Orchestrate
+  description: Accuracy of generated answers may vary. Please double-check responses.
+  is_default_message: false
+spec_version: v1
