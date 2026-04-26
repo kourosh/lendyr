@@ -22,9 +22,10 @@ vector_index:
   chunk_size: 400
   chunk_overlap: 50
   extraction_strategy: standard
+documents:
+  - documents/overlimit_transfers_guide.txt
 conversational_search_tool:
   language: en
-  index_config: []
   generation:
     prompt_instruction: ''
     max_docs_passed_to_llm: 5

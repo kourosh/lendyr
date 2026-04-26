@@ -1,0 +1,32 @@
+Lendyr Bank SOP-CC-FT-042: Handling Over-Limit Funds Transfer Requests
+
+This knowledge base provides guidance for customer service representatives handling over-limit transfer requests.
+
+Standard Daily Transfer Limits:
+- Internal transfers: $10,000
+- ACH transfers: $5,000
+- Domestic wires: $25,000
+- International wires: $10,000
+
+For transfers exceeding these limits, CSR escalation and supervisor override may be required.
+Additional authentication and fraud screening procedures apply for high-value transfers.
+
+Regulatory Compliance:
+- BSA (Bank Secrecy Act)
+- USA PATRIOT Act
+- FinCEN Travel Rule
+- OFAC screening
+- Regulation E
+- Regulation CC
+
+Required Authentication:
+- Step-up authentication for high-value transfers
+- Caller-supplied number restrictions
+- Mandatory fraud screening
+
+Escalation Procedures:
+1. Verify customer identity
+2. Check transfer limits
+3. Assess fraud risk
+4. Obtain supervisor approval if needed
+5. Document in CRM system

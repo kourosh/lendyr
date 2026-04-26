@@ -16,7 +16,7 @@
       "post": {
         "tags": ["Transfers"],
         "summary": "Transfer money between customer accounts",
-        "description": "Transfer money between a customer's own accounts. Validates sufficient funds before transfer. Handles regular transfers (checking/savings) and bill payments (to credit/loan accounts). Returns detailed transfer confirmation or insufficient funds error with available balance.",
+        "description": "Transfer money between a customer's own accounts. Validates sufficient funds before transfer. Handles regular transfers (checking/savings) and bill payments (to credit/loan accounts). When transferring TO a credit card or loan account, this is a payment that REDUCES the balance owed. Returns detailed transfer confirmation or insufficient funds error with available balance.",
         "operationId": "transfer_money_by_customer_id",
         "parameters": [
           {
@@ -47,7 +47,7 @@
                   "to_account_type": {
                     "type": "string",
                     "enum": ["checking", "savings", "credit", "loan"],
-                    "description": "The account type to transfer money TO (destination account). Use 'credit' or 'loan' for bill payments."
+                    "description": "The account type to transfer money TO (destination account). Use 'credit' or 'loan' for bill payments - these payments REDUCE the balance owed on credit cards and loans."
                   },
                   "amount": {
                     "type": "number",

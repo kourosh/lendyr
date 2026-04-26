@@ -113,13 +113,13 @@ echo "Importing Python tools..."
 
 if [ -f "tools/calculate_deferral_terms/calculate_deferral_terms.py" ]; then
     import_with_retry \
-        "orchestrate tools import -k python -f tools/calculate_deferral_terms/calculate_deferral_terms.py --requirements tools/calculate_deferral_terms/requirements.txt" \
+        "orchestrate tools import -k python -f tools/calculate_deferral_terms/calculate_deferral_terms.py --requirements-file tools/calculate_deferral_terms/requirements.txt" \
         "Calculate Deferral Terms Tool (Python)"
 fi
 
 if [ -f "tools/get_loan_details/get_loan_details.py" ]; then
     import_with_retry \
-        "orchestrate tools import -k python -f tools/get_loan_details/get_loan_details.py --requirements tools/get_loan_details/requirements.txt" \
+        "orchestrate tools import -k python -f tools/get_loan_details/get_loan_details.py --requirements-file tools/get_loan_details/requirements.txt" \
         "Get Loan Details Tool (Python)"
 fi
 
@@ -156,12 +156,12 @@ import_with_retry \
     "Card Agent"
 
 import_with_retry \
-    "orchestrate agents import -f agents/loan_agent.yaml" \
-    "Loan Agent"
-
-import_with_retry \
     "orchestrate agents import -f agents/loan_deferral_agent.yaml" \
     "Loan Deferral Agent"
+
+import_with_retry \
+    "orchestrate agents import -f agents/loan_agent.yaml" \
+    "Loan Agent"
 
 import_with_retry \
     "orchestrate agents import -f agents/lendyr_disputes_agent.yaml" \
