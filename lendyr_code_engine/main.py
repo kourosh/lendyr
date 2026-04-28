@@ -911,6 +911,103 @@ def get_payment_history_by_customer_id(customer_id: str):
         }
     }
 
+@app.get("/customers/by-id/{customer_id}/credit-score-history", tags=["Loans"],
+    summary="Get credit score history",
+    description="Returns the customer's current credit score and recent history showing how it has changed over time.")
+def get_credit_score_history(
+    customer_id: str,
+    months: int = Query(default=6, ge=1, le=12, description="Number of months of history to retrieve")
+):
+    # Get customer's current credit score
+    customer_sql = 'SELECT credit_score FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+    customer_results = query_db(customer_sql, (customer_id,))
+    
+    if not customer_results:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    current_score = customer_results[0]['CREDIT_SCORE']
+    
+    # Get credit score history
+    history_sql = '''
+        SELECT score_date, credit_score
+        FROM "LENDYR-DEMO".CREDIT_SCORE_HISTORY
+        WHERE customer_id = ?
+        ORDER BY score_date DESC
+        LIMIT ?
+    '''
+    history_results = query_db(history_sql, (customer_id, months))
+    
+    if not history_results:
+        # If no history exists, return just the current score
+        return {
+            "customer_id": customer_id,
+            "current_credit_score": current_score,
+            "score_date": None,
+            "history": [],
+            "summary": {
+                "total_change": 0,
+                "average_score": current_score,
+                "highest_score": current_score,
+                "lowest_score": current_score,
+                "trend": "stable"
+            }
+        }
+    
+    # Process history and calculate changes
+    history_with_changes = []
+    previous_score = None
+    
+    for i, record in enumerate(history_results):
+        score = record['CREDIT_SCORE']
+        score_date = record['SCORE_DATE']
+        
+        # Calculate change from previous month (going backwards in time)
+        if i == 0:
+            # Most recent entry - no change to show
+            change = 0
+        else:
+            change = score - previous_score
+        
+        history_with_changes.append({
+            "score_date": str(score_date),
+            "credit_score": score,
+            "change_from_previous": change
+        })
+        
+        previous_score = score
+    
+    # Calculate summary statistics
+    scores = [r['CREDIT_SCORE'] for r in history_results]
+    oldest_score = scores[-1] if scores else current_score
+    newest_score = scores[0] if scores else current_score
+    
+    total_change = newest_score - oldest_score
+    average_score = sum(scores) / len(scores) if scores else current_score
+    highest_score = max(scores) if scores else current_score
+    lowest_score = min(scores) if scores else current_score
+    
+    # Determine trend
+    if total_change > 10:
+        trend = "improving"
+    elif total_change < -10:
+        trend = "declining"
+    else:
+        trend = "stable"
+    
+    return {
+        "customer_id": customer_id,
+        "current_credit_score": current_score,
+        "score_date": str(history_results[0]['SCORE_DATE']) if history_results else None,
+        "history": history_with_changes,
+        "summary": {
+            "total_change": total_change,
+            "average_score": round(average_score, 2),
+            "highest_score": highest_score,
+            "lowest_score": lowest_score,
+            "trend": trend
+        }
+    }
+
 
 @app.post("/customers/by-id/{customer_id}/loans/{loan_id}/defer", tags=["Loans"],
     summary="Request loan payment deferral by customer ID",
@@ -1192,6 +1289,203 @@ def transfer_money_by_customer_id(customer_id: str, body: TransferRequest):
         print(f"=== END TRANSFER ERROR ===")
         raise HTTPException(status_code=500, detail=f"Transfer failed: {str(e)}")
 
+
+
+# ─── Bill Payment Endpoints ──────────────────────────────────────────────────
+
+class BillPaymentRequest(BaseModel):
+    payee_name: str
+    payee_address: dict
+    amount: float
+    account_type: str
+    invoice_number: Optional[str] = None
+    memo: Optional[str] = None
+    delivery_date: Optional[str] = None
+
+
+@app.post("/customers/by-id/{customer_id}/bill-payments", tags=["Bill Payments"],
+    summary="Create a bill payment via check",
+    description="Creates a bill payment request. Lendyr will mail a physical check to the payee address.")
+def create_bill_payment(customer_id: str, body: BillPaymentRequest):
+    """
+    Create a bill payment via check mailing service.
+    Validates sufficient funds and debits the customer's account.
+    """
+    from datetime import datetime, timedelta
+    import random
+    
+    try:
+        # Validate amount
+        if body.amount <= 0:
+            raise HTTPException(status_code=400, detail="Payment amount must be greater than 0")
+        
+        # Validate account type
+        if body.account_type not in ('checking', 'savings'):
+            raise HTTPException(status_code=400, detail="Can only pay from checking or savings accounts")
+        
+        # Validate address fields
+        required_address_fields = ['street', 'city', 'state', 'zip']
+        for field in required_address_fields:
+            if field not in body.payee_address or not body.payee_address[field]:
+                raise HTTPException(status_code=400, detail=f"Missing required address field: {field}")
+        
+        # Get customer info
+        customer_sql = 'SELECT first_name, last_name FROM "LENDYR-DEMO".CUSTOMERS WHERE customer_id = ?'
+        customer_results = query_db(customer_sql, (customer_id,))
+        
+        if not customer_results:
+            raise HTTPException(status_code=404, detail="Customer not found")
+        
+        customer_name = f"{customer_results[0]['FIRST_NAME']} {customer_results[0]['LAST_NAME']}"
+        
+        # Get source account
+        account_sql = 'SELECT * FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ? AND account_type = ?'
+        account_results = query_db(account_sql, (customer_id, body.account_type))
+        
+        if not account_results:
+            raise HTTPException(status_code=404, detail=f"{body.account_type.capitalize()} account not found")
+        
+        account = clean(account_results[0])
+        
+        # Check sufficient funds
+        current_balance = float(account['balance'])
+        if current_balance < body.amount:
+            return {
+                "success": False,
+                "error": "insufficient_funds",
+                "message": f"Insufficient funds. You have ${current_balance:.2f} available in your {body.account_type} account.",
+                "available_balance": current_balance
+            }
+        
+        # Calculate new balance
+        new_balance = current_balance - body.amount
+        
+        # Update account balance
+        update_sql = 'UPDATE "LENDYR-DEMO".ACCOUNTS SET balance = ? WHERE account_id = ?'
+        execute_update(update_sql, (new_balance, account['account_id']))
+        
+        # Generate payment details
+        payment_id = f"BP{random.randint(100000, 999999)}"
+        check_number = f"CHK{random.randint(10000, 99999)}"
+        created_at = datetime.now()
+        
+        # Calculate estimated delivery (5-7 business days)
+        if body.delivery_date:
+            estimated_delivery = body.delivery_date
+        else:
+            estimated_delivery = (created_at + timedelta(days=7)).strftime('%Y-%m-%d')
+        
+        # Create transaction record
+        transaction_sql = '''
+            INSERT INTO "LENDYR-DEMO".TRANSACTIONS
+            (account_id, transaction_type, amount, merchant_name, created_at, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        '''
+        try:
+            memo_text = f"Bill payment to {body.payee_name}"
+            if body.invoice_number:
+                memo_text += f" (Invoice: {body.invoice_number})"
+            
+            execute_update(transaction_sql, (
+                account['account_id'],
+                'bill_payment',
+                -body.amount,
+                memo_text,
+                created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'processing'
+            ))
+        except Exception as e:
+            print(f"Failed to create transaction record: {e}")
+        
+        # Build memo for check
+        check_memo = ""
+        if body.invoice_number:
+            check_memo = f"Invoice: {body.invoice_number}"
+        if body.memo:
+            check_memo = f"{check_memo} - {body.memo}" if check_memo else body.memo
+        
+        # Return success response
+        return {
+            "success": True,
+            "payment_id": payment_id,
+            "status": "processing",
+            "check_number": check_number,
+            "estimated_delivery": estimated_delivery,
+            "amount": body.amount,
+            "payee_name": body.payee_name,
+            "account_debited": {
+                "account_type": body.account_type,
+                "account_number": account['account_number'],
+                "new_balance": new_balance
+            },
+            "message": f"Bill payment of ${body.amount:.2f} to {body.payee_name} has been scheduled. Check #{check_number} will be mailed and should arrive by {estimated_delivery}.",
+            "created_at": created_at.strftime('%Y-%m-%d %H:%M:%S')
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"=== BILL PAYMENT ERROR ===")
+        print(f"Error: {str(e)}")
+        print(f"=== END BILL PAYMENT ERROR ===")
+        raise HTTPException(status_code=500, detail=f"Bill payment failed: {str(e)}")
+
+
+@app.get("/customers/by-id/{customer_id}/bill-payments", tags=["Bill Payments"],
+    summary="Get bill payment history",
+    description="Returns all bill payments for a customer")
+def get_bill_payments(customer_id: str, status: Optional[str] = None):
+    """
+    Get bill payment history for a customer.
+    This is a simplified implementation that returns bill payment transactions.
+    """
+    try:
+        # Get customer's accounts
+        accounts_sql = 'SELECT account_id FROM "LENDYR-DEMO".ACCOUNTS WHERE customer_id = ?'
+        accounts = query_db(accounts_sql, (customer_id,))
+        
+        if not accounts:
+            return []
+        
+        account_ids = [str(acc['ACCOUNT_ID']) for acc in accounts]
+        
+        # Get bill payment transactions
+        placeholders = ','.join(['?' for _ in account_ids])
+        transactions_sql = f'''
+            SELECT * FROM "LENDYR-DEMO".TRANSACTIONS
+            WHERE account_id IN ({placeholders})
+            AND transaction_type = 'bill_payment'
+            ORDER BY created_at DESC
+        '''
+        
+        results = query_db(transactions_sql, tuple(account_ids))
+        
+        # Format results
+        payments = []
+        for trans in results:
+            trans_dict = clean(trans)
+            # Extract check number and invoice from merchant_name if present
+            merchant_name = trans_dict.get('merchant_name', '')
+            
+            payments.append({
+                "payment_id": f"BP{trans_dict.get('transaction_id', '000000')}",
+                "payee_name": merchant_name.split(' to ')[-1].split(' (')[0] if ' to ' in merchant_name else merchant_name,
+                "amount": abs(float(trans_dict.get('amount', 0))),
+                "status": trans_dict.get('status', 'completed'),
+                "check_number": f"CHK{trans_dict.get('transaction_id', '00000')}",
+                "created_at": str(trans_dict.get('created_at', '')),
+                "estimated_delivery": str(trans_dict.get('created_at', ''))[:10] if trans_dict.get('created_at') else None
+            })
+        
+        # Filter by status if provided
+        if status:
+            payments = [p for p in payments if p['status'] == status]
+        
+        return payments
+    
+    except Exception as e:
+        print(f"Error fetching bill payments: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch bill payments: {str(e)}")
 
 
 # Made with Bob
