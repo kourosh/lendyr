@@ -1,0 +1,326 @@
+{
+  "spec": {
+    "kind": "flow",
+    "name": "Wire_transfer_flow_6740Tg",
+    "initiators": [],
+    "description": "A deterministic flow to determine if customer has enough money to make a wire transfer. If they do have enough, the flow checks to see if the amount is less than $10,000. If it is, flow will initiate the wire transfer. If it's more than $10,000, the flow returns a message telling the agent the customer needs to call a specialist.",
+    "display_name": "Wire transfer flow",
+    "input_schema": {
+      "type": "object",
+      "required": [
+        "customer_id",
+        "account_type",
+        "amount",
+        "routing_number",
+        "account_number",
+        "name"
+      ],
+      "properties": {
+        "amount": {
+          "type": "number",
+          "default": "",
+          "description": "Amount of money the customer wants to wire."
+        },
+        "customer_id": {
+          "type": "string",
+          "description": "ID of authenticated customer."
+        },
+        "account_type": {
+          "type": "string",
+          "description": "Type of account where the money will come from — e.g. checking or savings."
+        },
+        "routing_number": {
+          "type": "integer",
+          "description": "Routing number of the bank where the customer wants to wire the money."
+        },
+        "account_number": {
+          "type": "integer",
+          "description": "Account number of the person or business where the customer wants to wire the money."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Full name of the person or the business to whom the customer wants to send the money."
+        }
+      }
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "Result": {
+          "type": "string",
+          "description": "Outcome of the wire transfer eligibility check."
+        }
+      }
+    }
+  },
+  "edges": [
+    {
+      "id": "6fc897b3-bbd9-4ece-bcca-f884f48a38ba",
+      "end": "tool_81ffa36b-f5e4-4336-9f99-63161128d9ee",
+      "start": "__start__"
+    },
+    {
+      "id": "578a2c25-faaf-409d-8a21-accfa20fea15",
+      "end": "Branch 1",
+      "start": "tool_81ffa36b-f5e4-4336-9f99-63161128d9ee"
+    },
+    {
+      "id": "13b4146a-0cfe-4977-9fb3-b78ff6641470",
+      "end": "__end__",
+      "start": "Branch 1",
+      "display_name": "Not enough money path"
+    },
+    {
+      "id": "ae671ab6-a967-4fdb-965a-d84e1f607999",
+      "end": "Branch 2",
+      "start": "Branch 1",
+      "display_name": "Enough money path"
+    },
+    {
+      "id": "9444606c-f20f-4cfb-b4a8-b1088b35a99b",
+      "end": "__end__",
+      "start": "Branch 2",
+      "display_name": "Over limit path"
+    },
+    {
+      "id": "cf005c2a-347c-4dcd-bc75-48232912535b",
+      "end": "__end__",
+      "start": "Branch 2",
+      "display_name": "Under limit path"
+    }
+  ],
+  "nodes": {
+    "__end__": {
+      "spec": {
+        "kind": "end",
+        "name": "__end__",
+        "position": {
+          "x": 0,
+          "y": 600
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [
+            {
+              "source": "Branch 1",
+              "source_edge": "13b4146a-0cfe-4977-9fb3-b78ff6641470",
+              "target_variable": "Result",
+              "value_expression": "\"Insufficient funds.\""
+            },
+            {
+              "source": "Branch 2",
+              "source_edge": "9444606c-f20f-4cfb-b4a8-b1088b35a99b",
+              "target_variable": "Result",
+              "value_expression": "\"Over $10,000 limit. The customer must call a specialist.\""
+            },
+            {
+              "source": "Branch 2",
+              "source_edge": "cf005c2a-347c-4dcd-bc75-48232912535b",
+              "target_variable": "Result",
+              "value_expression": "\"Wire transfer approved and initiated.\""
+            }
+          ],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    },
+    "__start__": {
+      "spec": {
+        "kind": "start",
+        "name": "__start__",
+        "position": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "Branch 1": {
+      "spec": {
+        "kind": "branch",
+        "name": "Branch 1",
+        "position": {
+          "x": 0,
+          "y": 301
+        },
+        "evaluator": {
+          "conditions": [
+            {
+              "default": false,
+              "edge_id": "13b4146a-0cfe-4977-9fb3-b78ff6641470",
+              "metadata": {
+                "id": "21dc6a90-35b6-40b6-8d7b-e17cb4e1e9b0",
+                "conditions": []
+              },
+              "expression": "float(flow.input.amount)>=float(flow[\"Get a specific account type by customer ID\"].output.balance)"
+            },
+            {
+              "default": true,
+              "edge_id": "ae671ab6-a967-4fdb-965a-d84e1f607999",
+              "metadata": {
+                "id": "52c6a3df-fd12-43ad-b325-a10d143f7e72"
+              }
+            }
+          ]
+        },
+        "display_name": "Sufficient fund checker",
+        "match_policy": "FIRST_MATCH"
+      }
+    },
+    "Branch 2": {
+      "spec": {
+        "kind": "branch",
+        "name": "Branch 2",
+        "position": {
+          "x": 390,
+          "y": 448
+        },
+        "evaluator": {
+          "conditions": [
+            {
+              "default": false,
+              "edge_id": "9444606c-f20f-4cfb-b4a8-b1088b35a99b",
+              "metadata": {
+                "id": "97e133fa-76ea-4550-beaa-5b875282cdc7",
+                "conditions": [
+                  {
+                    "value": "10000",
+                    "isValid": true,
+                    "dataType": "number",
+                    "operator": ">=",
+                    "variableName": "flow.input.amount"
+                  }
+                ]
+              },
+              "expression": "flow.input.amount >= 10000"
+            },
+            {
+              "default": true,
+              "edge_id": "cf005c2a-347c-4dcd-bc75-48232912535b",
+              "metadata": {
+                "id": "409c92ac-3adb-4423-8bb0-a9dd70e8fe7e"
+              }
+            }
+          ]
+        },
+        "display_name": "Limit checker",
+        "match_policy": "FIRST_MATCH"
+      }
+    },
+    "tool_81ffa36b-f5e4-4336-9f99-63161128d9ee": {
+      "spec": {
+        "kind": "tool",
+        "name": "tool_81ffa36b-f5e4-4336-9f99-63161128d9ee",
+        "tool": "get_account_by_type_and_customer_id:d1111745-503d-4e8e-8687-1816c25f984e",
+        "metadata": {
+          "error_message_changed": true
+        },
+        "position": {
+          "x": 0,
+          "y": 155
+        },
+        "description": "Returns a single account of the given type (checking, savings, credit, loan).",
+        "display_name": "Get a specific account type by customer ID",
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "customer_id",
+            "account_type"
+          ],
+          "properties": {
+            "customer_id": {
+              "in": "path",
+              "type": "string",
+              "title": "customer_id",
+              "aliasName": "customer_id"
+            },
+            "account_type": {
+              "in": "path",
+              "type": "string",
+              "title": "account_type",
+              "aliasName": "account_type"
+            }
+          }
+        },
+        "output_schema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "title": "Status"
+            },
+            "balance": {
+              "type": "number",
+              "title": "Balance"
+            },
+            "currency": {
+              "type": "string",
+              "title": "Currency"
+            },
+            "opened_at": {
+              "type": "string",
+              "title": "Opened At",
+              "format": "date"
+            },
+            "account_id": {
+              "type": "integer",
+              "title": "Account Id"
+            },
+            "customer_id": {
+              "type": "integer",
+              "title": "Customer Id"
+            },
+            "account_type": {
+              "type": "string",
+              "title": "Account Type"
+            },
+            "credit_limit": {
+              "type": "number",
+              "title": "Credit Limit"
+            },
+            "interest_rate": {
+              "type": "number",
+              "title": "Interest Rate"
+            },
+            "account_number": {
+              "type": "string",
+              "title": "Account Number"
+            }
+          }
+        },
+        "error_handler_config": {
+          "max_retries": 0,
+          "error_message": "Something went wrong, please try again later.",
+          "retry_interval": 1000
+        }
+      },
+      "input_map": {
+        "spec": {
+          "maps": [],
+          "name": "",
+          "fallback_strategy": "ask_the_user"
+        }
+      }
+    }
+  },
+  "schemas": {},
+  "metadata": {
+    "llm_model": "groq/openai/gpt-oss-120b",
+    "source_kind": "ui",
+    "is_system_generated_description": false
+  },
+  "output_map": {
+    "spec": {
+      "maps": [
+        {
+          "target_variable": "Result",
+          "value_expression": "\"Insufficient funds.\" if float(flow.input.amount) >= float(flow[\"Get a specific account type by customer ID\"].output.balance) else (\"Over $10,000 limit. The customer must call a specialist.\" if float(flow.input.amount) >= 10000 else \"Wire transfer approved and initiated.\")"
+        }
+      ],
+      "name": "",
+      "fallback_strategy": "ask_the_user"
+    }
+  }
+}

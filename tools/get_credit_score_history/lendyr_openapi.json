@@ -1,0 +1,202 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Lendyr Bank API - Credit Score History",
+    "description": "Retrieve customer credit score history for the Lendyr Bank watsonx Orchestrate demo.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/customers/by-id/{customer_id}/credit-score-history": {
+      "get": {
+        "tags": [
+          "Loans"
+        ],
+        "summary": "Get credit score history",
+        "description": "Returns the customer's current credit score and recent history showing how it has changed over time. This is a deterministic tool that retrieves data directly from the database without requiring LLM calls. The response includes the current score, historical scores with dates, changes between periods, and summary statistics including trend analysis.",
+        "operationId": "get_credit_score_history",
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Customer Id"
+            },
+            "description": "The unique identifier for the customer",
+            "x-ibm-context-mapping": "customer_id"
+          },
+          {
+            "name": "months",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "default": 6,
+              "title": "Months"
+            },
+            "description": "Number of months of credit score history to retrieve (1-12, default: 6)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "customer_id": {
+                      "type": "string",
+                      "description": "The customer's unique identifier"
+                    },
+                    "current_credit_score": {
+                      "type": "integer",
+                      "description": "The customer's current credit score"
+                    },
+                    "score_date": {
+                      "type": "string",
+                      "format": "date",
+                      "description": "The date of the most recent credit score"
+                    },
+                    "history": {
+                      "type": "array",
+                      "description": "Historical credit scores ordered from most recent to oldest",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "score_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "The date of this credit score"
+                          },
+                          "credit_score": {
+                            "type": "integer",
+                            "description": "The credit score on this date"
+                          },
+                          "change_from_previous": {
+                            "type": "integer",
+                            "description": "The change in score from the previous month (positive = improvement, negative = decline)"
+                          }
+                        }
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "description": "Summary statistics for the credit score history",
+                      "properties": {
+                        "total_change": {
+                          "type": "integer",
+                          "description": "Total change in credit score over the period (newest - oldest)"
+                        },
+                        "average_score": {
+                          "type": "number",
+                          "description": "Average credit score over the period"
+                        },
+                        "highest_score": {
+                          "type": "integer",
+                          "description": "Highest credit score in the period"
+                        },
+                        "lowest_score": {
+                          "type": "integer",
+                          "description": "Lowest credit score in the period"
+                        },
+                        "trend": {
+                          "type": "string",
+                          "enum": ["improving", "declining", "stable"],
+                          "description": "Overall trend of the credit score (improving: +10 or more, declining: -10 or more, stable: between -10 and +10)"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Customer not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  },
+  "servers": [
+    {
+      "url": "https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud"
+    }
+  ]
+}

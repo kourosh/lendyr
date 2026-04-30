@@ -132,7 +132,7 @@ toolkits: []
 plugins:
   agent_pre_invoke: []
   agent_post_invoke: []
-knowledge_base:
+knowledge_base: []
 chat_with_docs:
   enabled: false
   supports_full_document: true
