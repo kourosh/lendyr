@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Import All Lendyr Assets Script
-# This script imports all tools, knowledge bases, connections, and agents
-# in the correct dependency order for watsonx Orchestrate
+# Deploy Lendyr Assets to TechZone Environment
+# This script sets up the TechZone environment and imports all assets
 
 set -e  # Exit on error
 
@@ -18,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}Lendyr Asset Import Script${NC}"
+echo -e "${BLUE}Lendyr TechZone Deployment Script${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -59,9 +58,64 @@ fi
 print_success "orchestrate CLI found"
 
 # ========================================
-# STEP 1: Import Tools
+# STEP 1: Environment Setup
 # ========================================
-print_section "Step 1: Importing Tools"
+print_section "Step 1: Setting up TechZone Environment"
+
+# Check if techzone environment already exists
+if orchestrate env list | grep -q "techzone"; then
+    print_info "TechZone environment already exists"
+else
+    print_info "Adding TechZone environment..."
+    
+    # Prompt for environment details
+    echo ""
+    echo -e "${YELLOW}Please provide TechZone environment details:${NC}"
+    echo ""
+    
+    read -p "Enter TechZone instance URL: " TECHZONE_URL
+    read -p "Enter environment type (ibm_iam/mcsp/cpd) [default: ibm_iam]: " ENV_TYPE
+    ENV_TYPE=${ENV_TYPE:-ibm_iam}
+    
+    # Add the environment
+    if orchestrate env add -n techzone -u "$TECHZONE_URL" -t "$ENV_TYPE"; then
+        print_success "TechZone environment added successfully"
+    else
+        print_error "Failed to add TechZone environment"
+        exit 1
+    fi
+fi
+
+# ========================================
+# STEP 2: Activate TechZone Environment
+# ========================================
+print_section "Step 2: Activating TechZone Environment"
+
+echo ""
+echo -e "${YELLOW}Authenticating to TechZone environment...${NC}"
+echo -e "${YELLOW}You will be prompted for your API key.${NC}"
+echo ""
+
+if orchestrate env activate techzone; then
+    print_success "TechZone environment activated"
+else
+    print_error "Failed to activate TechZone environment"
+    exit 1
+fi
+
+# Verify active environment
+ACTIVE_ENV=$(orchestrate env list | grep "(active)" | awk '{print $1}')
+if [ "$ACTIVE_ENV" != "techzone" ]; then
+    print_error "TechZone environment is not active. Current: $ACTIVE_ENV"
+    exit 1
+fi
+
+print_success "Confirmed TechZone environment is active"
+
+# ========================================
+# STEP 3: Import Tools
+# ========================================
+print_section "Step 3: Importing Tools"
 
 TOOLS_DIR="$PROJECT_ROOT/tools"
 TOOL_COUNT=0
@@ -73,6 +127,11 @@ if [ -d "$TOOLS_DIR" ]; then
     print_info "Scanning for Python tools..."
     while IFS= read -r -d '' tool_dir; do
         tool_name=$(basename "$tool_dir")
+        
+        # Skip archived tools
+        if [[ "$tool_dir" == *"archived"* ]]; then
+            continue
+        fi
         
         # Look for Python files in the tool directory
         if [ -f "$tool_dir/${tool_name}.py" ]; then
@@ -105,6 +164,11 @@ if [ -d "$TOOLS_DIR" ]; then
     while IFS= read -r -d '' openapi_file; do
         tool_dir=$(dirname "$openapi_file")
         tool_name=$(basename "$tool_dir")
+        
+        # Skip archived tools
+        if [[ "$tool_dir" == *"archived"* ]]; then
+            continue
+        fi
         
         TOOL_COUNT=$((TOOL_COUNT + 1))
         print_info "Importing OpenAPI tool: $tool_name"
@@ -141,9 +205,9 @@ else
 fi
 
 # ========================================
-# STEP 2: Import Knowledge Bases
+# STEP 4: Import Knowledge Bases
 # ========================================
-print_section "Step 2: Importing Knowledge Bases"
+print_section "Step 4: Importing Knowledge Bases"
 
 KB_DIR="$PROJECT_ROOT/knowledge_bases"
 KB_COUNT=0
@@ -174,9 +238,9 @@ else
 fi
 
 # ========================================
-# STEP 3: Import Connections
+# STEP 5: Import Connections
 # ========================================
-print_section "Step 3: Importing Connections"
+print_section "Step 5: Importing Connections"
 
 CONN_DIR="$PROJECT_ROOT/connections"
 CONN_COUNT=0
@@ -211,9 +275,9 @@ else
 fi
 
 # ========================================
-# STEP 4: Import Agents (with dependency handling)
+# STEP 6: Import Agents (with dependency handling)
 # ========================================
-print_section "Step 4: Importing Agents"
+print_section "Step 6: Importing Agents"
 
 AGENTS_DIR="$PROJECT_ROOT/agents"
 AGENT_COUNT=0
@@ -224,7 +288,7 @@ if [ -d "$AGENTS_DIR" ]; then
     print_info "Importing agents in multiple passes to handle dependencies..."
     
     # Create temporary directory for tracking
-    TEMP_DIR="/tmp/agent_import_$$"
+    TEMP_DIR="/tmp/agent_import_techzone_$$"
     mkdir -p "$TEMP_DIR"
     
     # Create list of all agent files
@@ -306,31 +370,16 @@ else
 fi
 
 # ========================================
-# STEP 5: Delete AskOrchestrate Agent
-# ========================================
-print_section "Step 5: Deleting AskOrchestrate Agent"
-
-print_info "Removing AskOrchestrate agent..."
-if orchestrate agents remove -n AskOrchestrate -k native --force 2>/dev/null; then
-    print_success "Deleted AskOrchestrate agent"
-elif orchestrate agents remove -n AskOrchestrate -k assistant --force 2>/dev/null; then
-    print_success "Deleted AskOrchestrate agent"
-elif orchestrate agents remove -n AskOrchestrate -k external --force 2>/dev/null; then
-    print_success "Deleted AskOrchestrate agent"
-else
-    print_warning "AskOrchestrate agent not found or already deleted"
-fi
-
-# ========================================
 # Summary
 # ========================================
-print_section "Import Summary"
+print_section "TechZone Deployment Summary"
 
 TOTAL_COUNT=$((TOOL_COUNT + KB_COUNT + CONN_COUNT + AGENT_COUNT))
 TOTAL_SUCCESS=$((TOOL_SUCCESS + KB_SUCCESS + CONN_SUCCESS + AGENT_SUCCESS))
 TOTAL_FAILED=$((TOOL_FAILED + KB_FAILED + CONN_FAILED + AGENT_FAILED))
 
 echo ""
+echo -e "${BLUE}Environment:${NC}     techzone"
 echo -e "${BLUE}Tools:${NC}           $TOOL_SUCCESS/$TOOL_COUNT successful"
 echo -e "${BLUE}Knowledge Bases:${NC} $KB_SUCCESS/$KB_COUNT successful"
 echo -e "${BLUE}Connections:${NC}     $CONN_SUCCESS/$CONN_COUNT successful"
@@ -339,11 +388,41 @@ echo ""
 echo -e "${BLUE}Total:${NC}           $TOTAL_SUCCESS/$TOTAL_COUNT successful, $TOTAL_FAILED failed"
 echo ""
 
+# ========================================
+# Post-Deployment Instructions
+# ========================================
+if [ $TOTAL_SUCCESS -gt 0 ]; then
+    print_section "Post-Deployment Steps"
+    echo ""
+    
+    if [ $CONN_SUCCESS -gt 0 ]; then
+        print_info "Configure connection credentials:"
+        echo "  orchestrate connections configure -a <app_id> --env draft --kind <auth_type> --type team"
+        echo "  orchestrate connections set-credentials -a <app_id> --env draft -u <username> -p <password>"
+        echo ""
+    fi
+    
+    print_info "Verify imports:"
+    echo "  orchestrate tools list"
+    echo "  orchestrate knowledge-bases list"
+    echo "  orchestrate connections list"
+    echo "  orchestrate agents list"
+    echo ""
+    
+    print_info "Test agents in draft environment:"
+    echo "  orchestrate agents test -n <agent_name>"
+    echo ""
+    
+    print_info "Deploy agents to live environment:"
+    echo "  orchestrate agents deploy -n <agent_name>"
+    echo ""
+fi
+
 if [ $TOTAL_FAILED -eq 0 ]; then
-    print_success "All assets imported successfully!"
+    print_success "All assets deployed successfully to TechZone!"
     exit 0
 else
-    print_warning "Some assets failed to import. Please review the errors above."
+    print_warning "Some assets failed to deploy. Please review the errors above."
     exit 1
 fi
 

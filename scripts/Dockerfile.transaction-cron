@@ -1,0 +1,31 @@
+FROM python:3.11-slim
+
+# Install DB2 dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    wget \
+    tar \
+    libxml2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install IBM DB2 driver
+RUN wget https://public.dhe.ibm.com/ibmdl/export/pub/software/data/db2/drivers/odbc_cli/linuxx64_odbc_cli.tar.gz \
+    && tar -xzf linuxx64_odbc_cli.tar.gz -C /opt \
+    && rm linuxx64_odbc_cli.tar.gz
+
+ENV IBM_DB_HOME=/opt/clidriver
+ENV LD_LIBRARY_PATH=/opt/clidriver/lib:$LD_LIBRARY_PATH
+
+# Install Python dependencies
+COPY scripts/requirements_cron.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
+
+# Copy script
+COPY scripts/increment_transaction_dates.py /app/increment_transaction_dates.py
+
+WORKDIR /app
+
+CMD ["python", "increment_transaction_dates.py"]
+
+# Made with Bob
