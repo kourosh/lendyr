@@ -1,0 +1,116 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Get Loan Details Tool",
+    "description": "Retrieves comprehensive loan information including credit score, payment history, and deferral status for loan eligibility evaluation",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://lendyr-db2-api.28d7yzowjq08.us-south.codeengine.appdomain.cloud"
+    }
+  ],
+  "paths": {
+    "/loans/{customer_id}": {
+      "get": {
+        "summary": "Get consolidated loan details",
+        "description": "Returns comprehensive loan information including credit score, outstanding balance, annual interest rate, next payment due date, number of late payments in the past 3 years, and prior deferral status. This endpoint consolidates data from multiple sources for loan deferral eligibility evaluation.",
+        "operationId": "get_loan_details",
+        "tags": ["Loans"],
+        "parameters": [
+          {
+            "name": "customer_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The unique customer identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response with consolidated loan details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoanDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Customer or loan not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "detail": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoanDetails": {
+        "type": "object",
+        "required": [
+          "customer_id",
+          "credit_score",
+          "outstanding_balance",
+          "annual_rate",
+          "monthly_payment",
+          "due_date",
+          "late_payments_3yr",
+          "prior_deferral"
+        ],
+        "properties": {
+          "customer_id": {
+            "type": "string",
+            "description": "The customer's unique identifier"
+          },
+          "credit_score": {
+            "type": "integer",
+            "description": "Customer's current credit score"
+          },
+          "outstanding_balance": {
+            "type": "number",
+            "format": "float",
+            "description": "Current outstanding loan balance in dollars"
+          },
+          "annual_rate": {
+            "type": "number",
+            "format": "float",
+            "description": "Annual interest rate as a percentage (e.g., 6.75)"
+          },
+          "monthly_payment": {
+            "type": "number",
+            "format": "float",
+            "description": "Monthly payment amount in dollars"
+          },
+          "due_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Next payment due date (YYYY-MM-DD)"
+          },
+          "late_payments_3yr": {
+            "type": "integer",
+            "description": "Number of late payments in the past 3 years"
+          },
+          "prior_deferral": {
+            "type": "boolean",
+            "description": "Whether the customer has had a prior deferral"
+          }
+        }
+      }
+    }
+  }
+}

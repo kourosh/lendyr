@@ -3,7 +3,8 @@ name: loan_agent
 display_name: loan_agent
 description: 'Specialist agent for Lendyr Bank that handles loan and dispute inquiries
   including checking outstanding balances, upcoming payment dates, monthly payment
-  amounts, and the status of filed disputes.
+  amounts, and the status of filed disputes. Does NOT handle credit score inquiries
+  - those are handled by credit_score_agent.
 
   '
 context_access_enabled: true
