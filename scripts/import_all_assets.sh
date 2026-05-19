@@ -159,7 +159,7 @@ if [ -d "$KB_DIR" ]; then
         
         print_info "Importing knowledge base: $kb_name"
         
-        if orchestrate knowledge-bases import -f "$kb_file"; then
+        if orchestrate knowledge_bases import -f "$kb_file"; then
             print_success "Imported knowledge base: $kb_name"
             KB_SUCCESS=$((KB_SUCCESS + 1))
         else

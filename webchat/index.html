@@ -89,6 +89,68 @@
       font-family: inherit;
     }
 
+    /* Account type selector rendered inside the chat bubble */
+    .account-type-card {
+      border-radius: 6px;
+      overflow: hidden;
+      margin-top: 4px;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      font-family: 'IBM Plex Sans', Arial, sans-serif;
+    }
+
+    .account-type-header {
+      background: #0f62fe;
+      color: white;
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .account-type-body {
+      padding: 14px;
+    }
+
+    .account-type-body select {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      border: 1px solid #8d8d8d;
+      border-radius: 4px;
+      background: #f4f4f4;
+      color: #161616;
+      appearance: auto;
+      margin-bottom: 8px;
+      cursor: pointer;
+    }
+
+    .account-type-body select:focus {
+      outline: 2px solid #0f62fe;
+      outline-offset: 0;
+    }
+
+    .account-type-desc {
+      font-size: 12px;
+      color: #525252;
+      margin-bottom: 12px;
+      min-height: 16px;
+    }
+
+    .account-type-submit {
+      display: inline-block;
+      padding: 8px 20px;
+      background: #0f62fe;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .account-type-submit:hover { background: #0353e9; }
+    .account-type-submit:disabled { background: #8d8d8d; cursor: default; }
+
     /* Branch map rendered inside the chat bubble */
     .branch-map-card {
       border-radius: 6px;
@@ -147,6 +209,68 @@
 
   <!-- ─── Orchestrate Web Chat ──────────────────────────────────── -->
   <script>
+    // Parses <account-type-selector>...</account-type-selector> out of agent response text.
+    // Returns { cleanText, selectorData } with the tag stripped, or null if not present.
+    function extractAccountTypeSelector(text) {
+      const match = text && text.match(/<account-type-selector>([\s\S]*?)<\/account-type-selector>/);
+      if (!match) return null;
+      try {
+        const selectorData = JSON.parse(match[1]);
+        const cleanText = text.replace(/<account-type-selector>[\s\S]*?<\/account-type-selector>/, '').trim();
+        return { cleanText, selectorData };
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Renders a styled dropdown for account type selection into hostElement.
+    // Calls instance.send() with the chosen label when the user submits.
+    function renderAccountTypeSelector(hostElement, options, instance) {
+      const card = document.createElement('div');
+      card.className = 'account-type-card';
+
+      const header = document.createElement('div');
+      header.className = 'account-type-header';
+      header.textContent = 'Select an account type';
+      card.appendChild(header);
+
+      const body = document.createElement('div');
+      body.className = 'account-type-body';
+
+      const select = document.createElement('select');
+      options.forEach(function (opt, i) {
+        const el = document.createElement('option');
+        el.value = opt.value;
+        el.textContent = opt.label;
+        if (i === 0) el.selected = true;
+        select.appendChild(el);
+      });
+
+      const desc = document.createElement('div');
+      desc.className = 'account-type-desc';
+      desc.textContent = options[0] ? options[0].description : '';
+
+      select.addEventListener('change', function () {
+        const chosen = options.find(function (o) { return o.value === select.value; });
+        desc.textContent = chosen ? chosen.description : '';
+      });
+
+      const btn = document.createElement('button');
+      btn.className = 'account-type-submit';
+      btn.textContent = 'Continue';
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        select.disabled = true;
+        instance.send({ input: { text: 'I would like to open a ' + select.value } });
+      });
+
+      body.appendChild(select);
+      body.appendChild(desc);
+      body.appendChild(btn);
+      card.appendChild(body);
+      hostElement.appendChild(card);
+    }
+
     // Parses <branch-map>...</branch-map> out of an agent response text.
     // Returns { text, branchData } where text has the tag stripped.
     function extractBranchMap(text) {
@@ -200,15 +324,33 @@
       if (!event?.message?.content) return;
       event.message.content.forEach(function (element) {
         if (element.response_type !== 'text' || !element.text) return;
-        const result = extractBranchMap(element.text);
-        if (!result) return;
-        element.text = result.cleanText;
-        element.response_type = 'user_defined';
-        element._branchData = result.branchData; // carried into userDefinedResponse
+
+        const selectorResult = extractAccountTypeSelector(element.text);
+        if (selectorResult) {
+          element.text = selectorResult.cleanText;
+          element.response_type = 'user_defined';
+          element._accountTypeSelectorData = selectorResult.selectorData;
+          return;
+        }
+
+        const branchResult = extractBranchMap(element.text);
+        if (branchResult) {
+          element.text = branchResult.cleanText;
+          element.response_type = 'user_defined';
+          element._branchData = branchResult.branchData;
+        }
       });
     }
 
-    function userDefinedResponseHandler(event) {
+    function userDefinedResponseHandler(event, instance) {
+      // Account type selector
+      const selectorData = event.contentItem?._accountTypeSelectorData;
+      if (selectorData && Array.isArray(selectorData.options)) {
+        renderAccountTypeSelector(event.hostElement, selectorData.options, instance);
+        return;
+      }
+
+      // Branch map
       const branchData = event.contentItem?._branchData;
       if (!branchData || !branchData.branches || branchData.branches.length === 0) return;
 
@@ -240,12 +382,11 @@
     // Replace the placeholder values below before deploying.
 
     window.wxOConfiguration = {
-      orchestrationID: 'YOUR_ORCHESTRATE_TENANT_ID',
-      hostURL: 'YOUR_ORCHESTRATE_HOST_URL',
+      orchestrationID: '47aa0435-6079-4db6-8b56-314c7b2048df',
+      hostURL: 'http://localhost:3000',
       showLauncher: true,
       chatOptions: {
-        agentId: 'YOUR_AGENT_ID',
-        agentEnvironmentId: 'YOUR_AGENT_ENVIRONMENT_ID',
+        agentId: 'ae64e337-aff7-483d-a0a1-174fc500bbba',
         onLoad: onChatLoad,
       },
       layout: {

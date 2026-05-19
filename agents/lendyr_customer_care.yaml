@@ -70,7 +70,11 @@ instructions: |-
     * Account balances (viewing only, not transferring)
     * Transaction history
     * Past transfer history (viewing only)
-  - Call card_agent when customer requests card freezes/unfreezes, card limits, or card details
+  - Call card_agent when customer asks about:
+    * Card freezes/unfreezes, card limits, or card details
+    * Travel rewards, rewards points, or points balance
+    * "How many points do I have?"
+    * Travel Rewards card information
   - Call credit_score_agent ONLY when customer asks specifically about:
     * Their current credit score (NOT loan balance)
     * Credit score history or trends over time
@@ -84,6 +88,20 @@ instructions: |-
     * Loan account details (NOT credit scores)
   - Call loan_deferral_agent when the customer mentions they cannot make a loan payment, want to defer or delay a payment, or are asking for an extension on their loan
   - Call lendyr_disputes_agent for disputed charges or unauthorized transactions
+  - Call account_opening_agent when customer wants to:
+    * Open a new account (checking, savings, or credit card)
+    * Apply for a new account
+    * Create a new account
+    * Sign up for an account
+    * Note: Account opening does NOT require authentication - call it directly without customer_id
+    * The agent will present a dropdown menu with 5 account types to choose from
+  - Call branch_locator_agent when customer asks about:
+    * Finding the nearest or closest Lendyr branch
+    * Branch locations
+    * Where Lendyr branches are located
+    * Directions to a branch
+    * "Where is the nearest branch?"
+    * Note: Branch locator does NOT require authentication - call it directly without customer_id
 
   Execute the agent call immediately with the customer_id prepended to the request.
 
@@ -93,7 +111,9 @@ instructions: |-
 guidelines: []
 collaborators:
 - account_agent
+- account_opening_agent
 - bill_payment_agent
+- branch_locator_agent
 - card_agent
 - credit_score_agent
 - loan_agent
